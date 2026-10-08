@@ -9,6 +9,7 @@
     "prepare": "husky",
     "format": "prettier --check \"**/*.{ts,js,mjs,json,yaml,yml,md}\"",
     "format:fix": "prettier --write \"**/*.{ts,js,mjs,json,yaml,yml,md}\"",
+    "check-types": "turbo check-types",
     "lint": "turbo lint",
     "lint:fix": "turbo lint -- --fix"
   },
