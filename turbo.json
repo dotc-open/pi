@@ -4,15 +4,10 @@
   "tasks": {
     "lint": {
       "cache": true,
-      "inputs": ["src/**/*.ts", "tsconfig*.json", "eslint.config.mjs"]
+      "inputs": ["src/**/*.{ts,js,mjs}", "tsconfig*.json", "eslint.config.mjs"]
     },
     "check-types": {
       "dependsOn": ["^check-types"]
-    },
-    "dev": {
-      "dependsOn": ["^build"],
-      "cache": false,
-      "persistent": true
     }
   }
 }
