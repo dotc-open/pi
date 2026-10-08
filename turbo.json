@@ -3,8 +3,7 @@
   "ui": "tui",
   "tasks": {
     "lint": {
-      "cache": true,
-      "inputs": ["src/**/*.{ts,js,mjs}", "tsconfig*.json", "eslint.config.mjs"]
+      "inputs": ["$TURBO_DEFAULT$"]
     },
     "check-types": {
       "dependsOn": ["^check-types"]
