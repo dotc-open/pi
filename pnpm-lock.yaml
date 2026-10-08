@@ -165,10 +165,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      prettier:
-        specifier: ^3.9.9
-        version: 3.9.9
     devDependencies:
       husky:
         specifier: ^9.1.7
@@ -176,6 +172,9 @@ importers:
       lint-staged:
         specifier: ^17.6.0
         version: 17.6.0
+      prettier:
+        specifier: ^3.9.9
+        version: 3.9.9
       turbo:
         specifier: ^2.11.7
         version: 2.11.7

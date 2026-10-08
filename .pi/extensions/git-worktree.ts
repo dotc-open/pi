@@ -50,7 +50,7 @@ export default function (pi: ExtensionAPI) {
     promptSnippet: 'Create a git branch and worktree (gw workflow)',
     promptGuidelines: [
       'Use git_worktree_add when the user asks for a new branch/worktree (their "gw" workflow): the tool creates ' +
-        "the branch and worktree at (root)/(prefix)/(name). Solicit the branch name from the user first (e.g. " +
+        'the branch and worktree at (root)/(prefix)/(name). Solicit the branch name from the user first (e.g. ' +
         'feat/add-new-endpoint); the tool rejects prefixes not in the repo commit-message types and ' +
         'malformed names (digits, uppercase, dots, underscores, consecutive/trailing dashes). ' +
         'Pass mode "new" for work that should start from the latest develop (the tool fetches `origin develop` ' +
@@ -214,13 +214,12 @@ export default function (pi: ExtensionAPI) {
           const stderr = fetch.stderr.trim()
           const hint = stderr.includes("couldn't find remote ref develop")
             ? "\nHint: the remote's main branch is not named `develop` — check `git remote show origin`."
-            : stderr.includes('does not appear to be a git repository') || stderr.includes('Could not read from remote repository')
+            : stderr.includes('does not appear to be a git repository') ||
+                stderr.includes('Could not read from remote repository')
               ? '\nHint: `origin` is not a reachable remote — check `git remote -v` and your network, then call again.'
               : '\nHint: the fetch failed — check the error above, then call again.'
           return {
-            content: [
-              { type: 'text', text: `git fetch origin develop failed (exit ${fetchCode}):\n${stderr}${hint}` },
-            ],
+            content: [{ type: 'text', text: `git fetch origin develop failed (exit ${fetchCode}):\n${stderr}${hint}` }],
             details: { ...detailBase, fetchCode, code: undefined, success: false },
           }
         }

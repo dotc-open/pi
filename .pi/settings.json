@@ -1,8 +1,5 @@
 {
-  "packages": [
-    "npm:@chrischow/pi-lockdown",
-    "npm:@plannotator/pi-extension"
-  ],
+  "packages": ["npm:@chrischow/pi-lockdown", "npm:@plannotator/pi-extension"],
   "defaultProvider": "platform-ai",
   "defaultModel": "gemini-3.8-flash",
   "lockdown": {
@@ -18,19 +15,8 @@
       "nest_generate": "warn",
       "subagent": "allow"
     },
-    "defaultTools": [
-      "read",
-      "edit",
-      "write",
-      "grep",
-      "find",
-      "ls"
-    ],
-    "protectedPatterns": [
-      "**/.env*",
-      "**/.git/**",
-      "**/node_modules/**"
-    ],
+    "defaultTools": ["read", "edit", "write", "grep", "find", "ls"],
+    "protectedPatterns": ["**/.env*", "**/.git/**", "**/node_modules/**"],
     "fileAccess": {
       "external": {
         "protected": {
@@ -74,16 +60,8 @@
       "nest_generate": "block",
       "subagent_task": "block"
     },
-    "defaultTools": [
-      "read",
-      "grep",
-      "find",
-      "ls"
-    ],
-    "protectedPatterns": [
-      "**/.env*",
-      "**/.git/**"
-    ],
+    "defaultTools": ["read", "grep", "find", "ls"],
+    "protectedPatterns": ["**/.env*", "**/.git/**"],
     "fileAccess": {
       "external": {
         "protected": {

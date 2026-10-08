@@ -1,3 +1,4 @@
 # Build artifacts & generated code — `format` must only check source files
 **/dist/
 **/generated/
+pnpm-lock.yaml
