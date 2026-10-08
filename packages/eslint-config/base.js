@@ -24,7 +24,6 @@ export const baseConfig = [
       parser: tsPlugin.parser,
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: import.meta.dirname,
       },
     },
     plugins: {
