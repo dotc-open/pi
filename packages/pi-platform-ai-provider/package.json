@@ -1,0 +1,35 @@
+{
+  "name": "@dotc/pi-platform-ai-provider",
+  "version": "0.1.0",
+  "description": "Platform AI provider extension for Pi",
+  "author": "DOTC",
+  "license": "MIT",
+  "keywords": [
+    "pi-platform-ai-provider"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "check-types": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm build"
+  },
+  "files": [
+    "dist"
+  ],
+  "pi": {
+    "extensions": [
+      "dist/index.js"
+    ]
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@types/node": "^22.20.5",
+    "eslint": "^10.12.0",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}
