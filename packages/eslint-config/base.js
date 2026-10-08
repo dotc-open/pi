@@ -27,7 +27,7 @@ export const baseConfig = [
       },
     },
     plugins: {
-      '@typescript-eslint': tsPlugin,
+      '@typescript-eslint': tsPlugin.plugin,
     },
     rules: {
       'simple-import-sort/imports': 'error',
