@@ -5,6 +5,9 @@
     "lint": {
       "inputs": ["$TURBO_DEFAULT$"]
     },
+    "lint:fix": {
+      "cache": false
+    },
     "check-types": {
       "dependsOn": ["^check-types"]
     }
