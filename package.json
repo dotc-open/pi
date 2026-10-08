@@ -31,8 +31,11 @@
     "turbo": "^2.11.7"
   },
   "lint-staged": {
-    "(apps|packages|infra)/**/*.(js|jsx|ts|tsx|mjs)": [
+    "*.{js,jsx,ts,tsx,mjs}": [
       "pnpm lint:fix",
+      "pnpm format:fix"
+    ],
+    "*.{json,yaml,yml,md}": [
       "pnpm format:fix"
     ]
   }
