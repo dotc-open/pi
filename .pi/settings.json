@@ -1,5 +1,5 @@
 {
-  "packages": ["npm:@chrischow/pi-lockdown", "npm:@plannotator/pi-extension"],
+  "packages": ["npm:@chrischow/pi-lockdown", "npm:@plannotator/pi-extension", "npm:@dotc/pi-platform-ai-provider"],
   "defaultProvider": "platform-ai",
   "defaultModel": "gemini-3.8-flash",
   "lockdown": {
