@@ -15,8 +15,7 @@
     "typescript-eslint": "^8.71.1"
   },
   "exports": {
-    "./base": "./base.js",
-    "./rules": "./rules.js"
+    "./base": "./base.js"
   },
   "dependencies": {
     "eslint-plugin-simple-import-sort": "^14.0.0"
