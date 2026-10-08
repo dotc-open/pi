@@ -1,0 +1,24 @@
+{
+  "name": "@repo/eslint-config",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "jiti": "^2.7.0",
+    "typescript-eslint": "^8.71.1"
+  },
+  "exports": {
+    "./base": "./base.js",
+    "./rules": "./rules.js"
+  },
+  "dependencies": {
+    "eslint-plugin-simple-import-sort": "^14.0.0"
+  }
+}

@@ -1,0 +1,24 @@
+# Dependencies
+**/node_modules
+
+# Env vars
+**/.env
+**/.env.staging
+**/.env.production
+**/.env.local
+
+# .zip files for lambda function
+*.zip
+
+# Pulumi
+**/.pulumi/
+*.state.json
+
+# Lambda Layer package & dependencies
+layers/
+
+# Helm chart archive files
+*.tgz
+
+# Turborepo
+.turbo

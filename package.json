@@ -1,0 +1,41 @@
+{
+  "name": "dotc-pi",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky",
+    "format": "prettier --check 'packages/**/*.{ts,js,mjs}'",
+    "format:fix": "prettier --write 'packages/**/*.{ts,js,mjs}'",
+    "lint": "turbo lint",
+    "lint:fix": "turbo lint -- --fix"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.10.1",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.10.1",
+  "type": "module",
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "turbo": "^2.11.7"
+  },
+  "dependencies": {
+    "prettier": "^3.9.9"
+  },
+  "lint-staged": {
+    "(apps|packages|infra)/**/*.(js|jsx|ts|tsx|mjs)": [
+      "pnpm lint:fix",
+      "pnpm format:fix"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+export const infraRules = {
+  'no-unused-vars': 'off',
+  'no-redeclare': 'off',
+  '@typescript-eslint/no-redeclare': 'off',
+  '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+  '@typescript-eslint/await-thenable': 'error',
+  '@typescript-eslint/no-floating-promises': 'error',
+  '@typescript-eslint/no-misused-promises': 'error',
+  '@typescript-eslint/consistent-type-imports': 'warn',
+  '@typescript-eslint/no-explicit-any': 'warn',
+  '@typescript-eslint/no-unsafe-assignment': 'warn',
+  '@typescript-eslint/no-unsafe-argument': 'warn',
+  '@typescript-eslint/no-unsafe-call': 'warn',
+  '@typescript-eslint/no-unsafe-member-access': 'warn',
+  '@typescript-eslint/no-unsafe-return': 'warn',
+}
