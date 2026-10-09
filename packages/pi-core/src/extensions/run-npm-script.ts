@@ -1,74 +1,101 @@
-import { execSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
 
-const VALID_SCRIPTS = [
-  'build',
-  'lint',
-  'lint:fix',
-  'check-types',
-  'format',
-  'format:fix',
-  'test',
-  '--filter=@repo/db db:sync',
-  '--filter=@repo/db db:seed:run',
-  '--filter=@repo/db db:migration:run',
-  '--filter=@repo/db db:generate',
-] as const
-type ScriptName = (typeof VALID_SCRIPTS)[number]
-
 export default function (pi: ExtensionAPI) {
+  const configuration: unknown = (pi.getSettings() as { runNpmScript?: unknown }).runNpmScript
+  if (
+    configuration !== undefined &&
+    (configuration === null || typeof configuration !== 'object' || Array.isArray(configuration))
+  ) {
+    throw new Error('runNpmScript must be an object')
+  }
+
+  const configuredScripts = (configuration as { validScripts?: unknown } | undefined)?.validScripts
+  if (
+    configuredScripts !== undefined &&
+    (!Array.isArray(configuredScripts) ||
+      !configuredScripts.every((script: unknown) => typeof script === 'string' && script.length > 0))
+  ) {
+    throw new Error('runNpmScript.validScripts must be an array of non-empty strings')
+  }
+
+  const validScripts: string[] = configuredScripts === undefined ? [] : (configuredScripts as string[])
+  // Until execution uses argv, permit only shell-inert tokens (no quoting, expansion, or redirection).
+  for (const script of validScripts) {
+    if (!/^[\w@./:=+-]+(?:[ \t]+[\w@./:=+-]+)*$/.test(script)) {
+      throw new Error(`Unsupported runNpmScript.validScripts entry: "${script}"`)
+    }
+  }
+
+  const guidance = validScripts.length
+    ? validScripts.join(', ')
+    : 'none configured (set runNpmScript.validScripts in Pi settings)'
+
   pi.registerTool({
     name: 'run_npm_script',
     label: 'Run NPM Script',
-    description: `Use this tool to build, lint, check types, format, test code, and run DB commands in this repo by running one of the following npm scripts in the project root: ${VALID_SCRIPTS.join(', ')}.`,
+    description: `Run an allowlisted pnpm command in the current working directory. Permitted commands: ${guidance}.`,
     parameters: Type.Object({
       script: Type.String({
-        description: `The npm script to run. Must be one of: ${VALID_SCRIPTS.join(', ')}`,
+        description: `The exact pnpm command to run. Must be one of: ${guidance}`,
       }),
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
-      const script = params.script as ScriptName
+      const script = params.script
 
-      if (!VALID_SCRIPTS.includes(script)) {
+      if (!validScripts.includes(script)) {
         return {
-          content: [{ type: 'text', text: `Invalid script: "${script}". Must be one of: ${VALID_SCRIPTS.join(', ')}` }],
+          content: [{ type: 'text', text: `Invalid script: "${script}". Must be one of: ${guidance}` }],
           details: {},
           isError: true,
         }
       }
 
       try {
-        const output = execSync(`pnpm ${script}`, {
-          cwd: ctx.cwd,
-          encoding: 'utf-8',
-          signal,
+        const output = await new Promise<{
+          stdout: string
+          stderr: string
+          code: number | null
+          error: Error | undefined
+        }>((resolve) => {
+          const proc = spawn('pnpm', script.split(/[ \t]+/), { cwd: ctx.cwd, shell: false, signal })
+          let stdout = ''
+          let stderr = ''
+          let error: Error | undefined
+          proc.stdout.on('data', (data: Buffer) => {
+            stdout += data.toString()
+          })
+          proc.stderr.on('data', (data: Buffer) => {
+            stderr += data.toString()
+          })
+          proc.on('error', (cause) => {
+            error = cause
+          })
+          proc.on('close', (code) => {
+            resolve({ stdout, stderr, code, error })
+          })
         })
 
-        return {
-          content: [{ type: 'text', text: output }],
-          details: {},
-        }
-      } catch (error) {
-        // Extract the raw terminal output from the failed execution
-        let errorMessage: string
-
-        if (error && typeof error === 'object') {
-          const stdout = (error as { stdout?: string | Buffer }).stdout?.toString().trim()
-          const stderr = (error as { stderr?: string | Buffer }).stderr?.toString().trim()
-
-          // Combine stdout and stderr, or fall back to the standard error message
-          errorMessage =
-            [stdout, stderr].filter(Boolean).join('\n') || (error as { message?: string }).message || String(error)
-        } else {
-          errorMessage = String(error)
+        if (output.code === 0 && !output.error) {
+          return { content: [{ type: 'text', text: output.stdout }], details: {} }
         }
         return {
-          content: [{ type: 'text', text: errorMessage }],
+          content: [
+            {
+              type: 'text',
+              text:
+                [output.stdout.trim(), output.stderr.trim()].filter(Boolean).join('\n') ||
+                output.error?.message ||
+                `pnpm exited with code ${output.code}`,
+            },
+          ],
           details: {},
           isError: true,
         }
+      } catch (error) {
+        return { content: [{ type: 'text', text: String(error) }], details: {}, isError: true }
       }
     },
   })
