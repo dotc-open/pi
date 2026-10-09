@@ -1,5 +1,10 @@
 {
-  "packages": ["npm:@chrischow/pi-lockdown", "npm:@plannotator/pi-extension", "npm:@dotc/pi-platform-ai-provider"],
+  "packages": [
+    "npm:@chrischow/pi-lockdown",
+    "npm:@plannotator/pi-extension",
+    "npm:@dotc/pi-platform-ai-provider",
+    "npm:@dotc/pi-core"
+  ],
   "defaultProvider": "platform-ai",
   "defaultModel": "gemini-3.8-flash",
   "runNpmScript": {
