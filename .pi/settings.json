@@ -8,7 +8,17 @@
   "defaultProvider": "platform-ai",
   "defaultModel": "gemini-3.8-flash",
   "runNpmScript": {
-    "validScripts": ["build", "lint", "lint:fix", "check-types", "format", "format:fix"]
+    "packageManager": "pnpm",
+    "validScripts": [
+      "build",
+      "lint",
+      "lint:fix",
+      "check-types",
+      "format",
+      "format:fix",
+      "--filter @dotc/pi-core build",
+      "--filter @dotc/pi-platform-ai-provider"
+    ]
   },
   "lockdown": {
     "customTools": {

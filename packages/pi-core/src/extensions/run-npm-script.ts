@@ -33,6 +33,15 @@ export default function (pi: ExtensionAPI) {
       commands.set(script, script.split(/[ \t]+/))
     }
 
+    const configuredManager = (configuration as { packageManager?: unknown } | undefined)?.packageManager
+    let packageManager: 'npm' | 'pnpm' = 'pnpm'
+    if (configuredManager !== undefined) {
+      if (configuredManager !== 'npm' && configuredManager !== 'pnpm') {
+        throw new Error('runNpmScript.packageManager must be either "npm" or "pnpm"')
+      }
+      packageManager = configuredManager
+    }
+
     const guidance = validScripts.length
       ? validScripts.join(', ')
       : 'none configured (set runNpmScript.validScripts in Pi settings)'
@@ -40,11 +49,11 @@ export default function (pi: ExtensionAPI) {
     pi.registerTool({
       name: 'run_npm_script',
       label: 'Run NPM Script',
-      description: `Run an allowlisted pnpm command in the current working directory. Permitted commands: ${guidance}.`,
+      description: `Run an allowlisted ${packageManager} command in the current working directory. Permitted commands: ${guidance}.`,
       parameters: Type.Object(
         {
           script: Type.String({
-            description: `The exact pnpm command to run. Must be one of: ${guidance}`,
+            description: `The exact ${packageManager} command to run. Must be one of: ${guidance}`,
           }),
         },
         { additionalProperties: false },
@@ -68,7 +77,11 @@ export default function (pi: ExtensionAPI) {
             code: number | null
             error: Error | undefined
           }>((resolve) => {
-            const proc = spawn('pnpm', argv, { cwd: ctx.cwd, shell: false, signal })
+            const proc = spawn(packageManager, packageManager === 'npm' ? ['run', ...argv] : argv, {
+              cwd: ctx.cwd,
+              shell: false,
+              signal,
+            })
             let stdout = ''
             let stderr = ''
             let error: Error | undefined
@@ -94,10 +107,10 @@ export default function (pi: ExtensionAPI) {
               {
                 type: 'text',
                 text:
-                  (signal?.aborted ? output.error?.message || 'pnpm command aborted' : undefined) ||
+                  (signal?.aborted ? output.error?.message || `${packageManager} command aborted` : undefined) ||
                   [output.stdout.trim(), output.stderr.trim()].filter(Boolean).join('\n') ||
                   output.error?.message ||
-                  `pnpm exited with code ${output.code}`,
+                  `${packageManager} exited with code ${output.code}`,
               },
             ],
             details: {},
