@@ -1,0 +1,38 @@
+{
+  "name": "@dotc/pi-core",
+  "version": "0.1.0",
+  "description": "pi-core",
+  "author": "DOTC",
+  "license": "MIT",
+  "keywords": [
+    "pi-core"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "check-types": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm build"
+  },
+  "files": [
+    "dist"
+  ],
+  "pi": {
+    "extensions": [
+      "dist/index.js"
+    ]
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@types/node": "^22.20.5",
+    "eslint": "^10.12.0",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-agent-core": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  }
+}
