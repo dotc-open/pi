@@ -8,7 +8,7 @@ A collection of core extensions and tools for the [Pi coding agent](https://gith
 - **`git_changes`**: Inspect staged, unstaged, and untracked changes across the working tree in a unified diff view with safety line caps.
 - **`commit_changes`**: Stage and commit repository changes in a single operation, with full handling for Git hooks and error reporting.
 - **`git_worktree_add`**: Create and switch to new branches/worktrees using structured bare-repo conventions and strict branch naming rules.
-- **`run_npm_script`**: Execute allowlisted project scripts and database commands securely.
+- **`run_npm_script`**: Execute allowlisted project scripts.
 - **`fetch_url`**: Fetch content from web pages, APIs, or raw files with output character limiting and abort signal support.
 - **`current_date`**: Get current date, weekday, time, and timezone information with support for IANA timezones.
 
@@ -124,7 +124,7 @@ Executes configured, allowlisted `pnpm` commands from within Pi. Configure the e
 ```json
 {
   "runNpmScript": {
-    "validScripts": ["build", "--filter=@repo/db db:sync"]
+    "validScripts": ["build", "--filter=@dotc/pi-core check-types"]
   }
 }
 ```
@@ -132,7 +132,7 @@ Executes configured, allowlisted `pnpm` commands from within Pi. Configure the e
 - **Parameters**:
   - `script` (`string`, required): The entire permitted invocation after `pnpm`, exactly as listed in `validScripts`. No separate or appended arguments are accepted.
 - **Behavior**:
-  - Pi merges global and trusted project settings; the project array replaces the global array. If `validScripts` is absent, nothing is permitted.
+  - Pi uses the effective settings: a trusted project's `runNpmScript.validScripts` replaces the user-level array rather than adding to it. If the project omits `validScripts`, the user-level array is inherited; if the project sets `[]`, no scripts are allowed, even when the user-level array is non-empty. If neither level defines it, no scripts are allowed. Untrusted project settings are not applied.
   - Settings are read on `session_start`, after Pi binds the extension runtime. An invalid namespace, non-array `validScripts`, non-string or empty entry, or unsupported shell/quoting syntax is reported as a session-start error and the tool is not registered. Pi may continue loading other extensions; this is not a fatal startup or extension-load error. Entries must consist of plain whitespace-delimited tokens containing letters, digits, underscores, `@`, `.`, `/`, `:`, `=`, `+`, or `-`; spaces and tabs may separate tokens, but no leading/trailing whitespace is allowed.
   - Checks the exact configured string before execution, including any pre-supplied arguments. Executes `pnpm` with separate argv tokens and `shell: false` in the current working directory (`ctx.cwd`); it never spawns an unlisted request.
   - Returns stdout on success and captured command output or an error on failure/abort.
@@ -142,9 +142,9 @@ Executes configured, allowlisted `pnpm` commands from within Pi. Configure the e
 
 In a clean session from the repo root, use `pi --no-extensions -e ./packages/pi-core/src/extensions/run-npm-script.ts` and confirm the loaded extension path before calling `run_npm_script`. Reload after changing `.pi/settings.json`. If an older project extension copy is installed, an ordinary project session may exercise that copy instead.
 
-1. Remove `runNpmScript`: the description reports no configured commands; `{ "script": "build" }` is rejected without spawning.
+1. Remove `runNpmScript` from both project and user-level settings: the description reports no configured commands; `{ "script": "build" }` is rejected without spawning. A user-level allowlist is inherited if only the project setting is removed.
 2. Set `validScripts` to `null`, `"build"`, `[1]`, `[""]`, `["build; echo unsafe"]`, or `["'build'"]`, one at a time: each reports a session-start error and does not register the tool. Also check a wrong-type `runNpmScript` value.
-3. Set `validScripts` to `["build", "--filter=@repo/db db:sync"]`: an exact `build` request runs; `build --extra` and an unlisted command are rejected without spawning. The filtered entry runs as argv `['--filter=@repo/db', 'db:sync']`, not via a shell. Use a harmless filtered script rather than `db:sync` if the database would be affected.
+3. Set `validScripts` to `["build", "--filter=@dotc/pi-core check-types"]`: an exact `build` request runs; `build --extra` and an unlisted command are rejected without spawning. The filtered entry runs as argv `['--filter=@dotc/pi-core', 'check-types']`, not via a shell.
 4. Configure a command that exits nonzero and one that can be aborted; verify both return `isError: true`, with command output or an abort message respectively.
 
 ---
