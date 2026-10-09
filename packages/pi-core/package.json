@@ -19,7 +19,12 @@
   ],
   "pi": {
     "extensions": [
-      "dist/index.js"
+      "dist/extensions/commit-changes.js",
+      "dist/extensions/current-date.js",
+      "dist/extensions/fetch-url.js",
+      "dist/extensions/git-changes.js",
+      "dist/extensions/git-worktree.js",
+      "dist/extensions/subagent.js"
     ]
   },
   "devDependencies": {
