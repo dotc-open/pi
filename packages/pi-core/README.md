@@ -141,15 +141,6 @@ Executes configured, allowlisted `pnpm` commands from within Pi. Configure the e
   - Returns stdout on success and captured command output or an error on failure/abort.
   - If an older `.pi/extensions/run-npm-script.ts` copy exists in your project, that separate extension is not configured by this setting.
 
-#### Focused manual verification
-
-In a clean session from the repo root, use `pi --no-extensions -e ./packages/pi-core/src/extensions/run-npm-script.ts` and confirm the loaded extension path before calling `run_npm_script`. Reload after changing `.pi/settings.json`. If an older project extension copy is installed, an ordinary project session may exercise that copy instead.
-
-1. Remove `runNpmScript` from both project and user-level settings: the description reports no configured commands; `{ "script": "build" }` is rejected without spawning. A user-level allowlist is inherited if only the project setting is removed.
-2. Set `validScripts` to `null`, `"build"`, `[1]`, `[""]`, `["build; echo unsafe"]`, or `["'build'"]`, one at a time: each reports a session-start error and does not register the tool. Also check a wrong-type `runNpmScript` value.
-3. Set `validScripts` to `["build", "--filter=@dotc/pi-core check-types"]`: an exact `build` request runs; `build --extra` and an unlisted command are rejected without spawning. The filtered entry runs as argv `['--filter=@dotc/pi-core', 'check-types']`, not via a shell.
-4. Configure a command that exits nonzero and one that can be aborted; verify both return `isError: true`, with command output or an abort message respectively.
-
 ---
 
 ### 6. `fetch_url`
