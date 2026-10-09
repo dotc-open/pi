@@ -8,6 +8,7 @@
   "defaultProvider": "platform-ai",
   "defaultModel": "gemini-3.8-flash",
   "runNpmScript": {
+    "packageManager": "pnpm",
     "validScripts": [
       "build",
       "lint",
