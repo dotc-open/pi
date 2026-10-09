@@ -53,7 +53,7 @@ pnpm login
 Publish:
 
 ```bash
-pnpm --filter @dotc/pi-platform-ai-provider publish --access public --publish-branch develop
+pnpm --filter @dotc/<package name> publish --access public --publish-branch develop
 ```
 
 While waiting for npm to publish the package, add a release on GitHub by:
