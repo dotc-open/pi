@@ -11,7 +11,7 @@ A repository for DOTC's Pi packages.
 Bump the version:
 
 ```bash
-npm version <major|minor|patch>
+pnpm --filter <package> version <major|minor|patch>
 ```
 
 ### 2. Merge changes
@@ -53,7 +53,7 @@ pnpm login
 Publish:
 
 ```bash
-pnpm --filter @dotc/<package name> publish --access public --publish-branch develop
+pnpm --filter <package> publish --access public --publish-branch develop
 ```
 
 While waiting for npm to publish the package, add a release on GitHub by:
