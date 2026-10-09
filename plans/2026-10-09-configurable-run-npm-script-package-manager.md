@@ -26,7 +26,7 @@ After **EACH STEP**, run repository-level `pnpm lint:fix`, `pnpm format:fix`, an
 
 - [x] Confirm the sibling setting, `pnpm` fallback, and retained multi-token allowlist contract: invoke `spawn('pnpm', argv, ...)` or `spawn('npm', ['run', ...argv], ...)`.
 - [x] Implement strict manager validation and manager-specific spawning; retain existing multi-token validation and exact-match authorization, and update tool descriptions.
-- [ ] Update the package README with supported values, default, examples of both single- and multi-token entries, and the npm/pnpm invocation forms; note that pnpm-specific allowlist entries need manager-appropriate configuration for npm.
+- [x] Update the package README with supported values, default, examples of both single- and multi-token entries, and the npm/pnpm invocation forms; note that pnpm-specific allowlist entries need manager-appropriate configuration for npm.
 - [ ] Verify both managers end to end, including denial/error/abort behavior.
 
 ## Verification

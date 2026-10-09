@@ -119,25 +119,32 @@ Creates a Git branch and dedicated worktree according to a bare-repo layout: `(b
 
 ### 5. `run_npm_script`
 
-Executes configured, allowlisted `pnpm` commands from within Pi. Configure the effective Pi settings in `~/.pi/agent/settings.json` or the trusted project's `.pi/settings.json`:
+Executes configured, allowlisted package-manager commands (`npm` or `pnpm`) from within Pi. Configure the effective Pi settings in `~/.pi/agent/settings.json` or the trusted project's `.pi/settings.json`:
 
 ```json
 {
   "runNpmScript": {
-    "validScripts": ["build", "--filter=@dotc/pi-core check-types"]
+    "packageManager": "pnpm",
+    "validScripts": ["build", "build --watch", "--filter=@dotc/pi-core check-types"]
   }
 }
 ```
 
+- **Settings**:
+  - `packageManager` (`"npm"` or `"pnpm"`, optional): The package manager used to run allowlisted commands. Defaults to `"pnpm"` when omitted for backward compatibility; any other value is reported as a session-start error and the tool is not registered. When `"npm"` is selected, `validScripts` entries must be written for npm (pnpm-only options such as `--filter` are not automatically translated).
+  - `validScripts` (`string[]`): Allowlisted invocations; each entry may be a single token or a whitespace-separated multi-token invocation.
 - **Parameters**:
-  - `script` (`string`, required): The entire permitted invocation after `pnpm`, exactly as listed in `validScripts`. No separate or appended arguments are accepted.
+  - `script` (`string`, required): The entire permitted invocation, exactly as listed in `validScripts`. No separate or appended arguments are accepted.
+- **Invocation forms**:
+  - With `"pnpm"`: the configured string is spawned as `pnpm <script>` with each whitespace-separated token as a separate argv entry (e.g. `build --watch` runs `pnpm build --watch`).
+  - With `"npm"`: the configured string is spawned as `npm run <script>` (e.g. `build --watch` runs `npm run build --watch`).
 - **Behavior**:
   - For valid settings, the effective allowlist is selected in the order specified below. Project and global arrays are **not merged**.
     - Trusted project's `runNpmScript.validScripts` array, **even if it is empty**
     - Global `runNpmScript.validScripts` array
     - An empty array `[]`
-  - Settings are read on `session_start`, after Pi binds the extension runtime. An invalid namespace, non-array `validScripts`, non-string or empty entry, or unsupported shell/quoting syntax is reported as a session-start error and the tool is not registered. Pi may continue loading other extensions; this is not a fatal startup or extension-load error. Entries must consist of plain whitespace-delimited tokens containing letters, digits, underscores, `@`, `.`, `/`, `:`, `=`, `+`, or `-`; spaces and tabs may separate tokens, but no leading/trailing whitespace is allowed.
-  - Checks the exact configured string before execution, including any pre-supplied arguments. Executes `pnpm` with separate argv tokens and `shell: false` in the current working directory (`ctx.cwd`); it never spawns an unlisted request.
+  - Settings are read on `session_start`, after Pi binds the extension runtime. An invalid namespace, non-array `validScripts`, non-string or empty entry, unsupported shell/quoting syntax, or an invalid `packageManager` value is reported as a session-start error and the tool is not registered. Pi may continue loading other extensions; this is not a fatal startup or extension-load error. Entries must consist of plain whitespace-delimited tokens containing letters, digits, underscores, `@`, `.`, `/`, `:`, `=`, `+`, or `-`; spaces and tabs may separate tokens, but no leading/trailing whitespace is allowed.
+  - Checks the exact configured string before execution, including any pre-supplied arguments. Executes the selected manager with separate argv tokens and `shell: false` in the current working directory (`ctx.cwd`); it never spawns an unlisted request. Allowlisted entries are not translated between managers: entries must be appropriate for the configured `packageManager`.
   - Returns stdout on success and captured command output or an error on failure/abort.
   - If an older `.pi/extensions/run-npm-script.ts` copy exists in your project, that separate extension is not configured by this setting.
 
