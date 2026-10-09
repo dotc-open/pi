@@ -132,7 +132,10 @@ Executes configured, allowlisted `pnpm` commands from within Pi. Configure the e
 - **Parameters**:
   - `script` (`string`, required): The entire permitted invocation after `pnpm`, exactly as listed in `validScripts`. No separate or appended arguments are accepted.
 - **Behavior**:
-  - Pi uses the effective settings: a trusted project's `runNpmScript.validScripts` replaces the user-level array rather than adding to it. If the project omits `validScripts`, the user-level array is inherited; if the project sets `[]`, no scripts are allowed, even when the user-level array is non-empty. If neither level defines it, no scripts are allowed. Untrusted project settings are not applied.
+  - For valid settings, the effective allowlist is selected in the order specified below. Project and global arrays are **not merged**.
+    - Trusted project's `runNpmScript.validScripts` array, **even if it is empty**
+    - Global `runNpmScript.validScripts` array
+    - An empty array `[]`
   - Settings are read on `session_start`, after Pi binds the extension runtime. An invalid namespace, non-array `validScripts`, non-string or empty entry, or unsupported shell/quoting syntax is reported as a session-start error and the tool is not registered. Pi may continue loading other extensions; this is not a fatal startup or extension-load error. Entries must consist of plain whitespace-delimited tokens containing letters, digits, underscores, `@`, `.`, `/`, `:`, `=`, `+`, or `-`; spaces and tabs may separate tokens, but no leading/trailing whitespace is allowed.
   - Checks the exact configured string before execution, including any pre-supplied arguments. Executes `pnpm` with separate argv tokens and `shell: false` in the current working directory (`ctx.cwd`); it never spawns an unlisted request.
   - Returns stdout on success and captured command output or an error on failure/abort.
