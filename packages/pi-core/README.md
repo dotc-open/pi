@@ -119,25 +119,33 @@ Creates a Git branch and dedicated worktree according to a bare-repo layout: `(b
 
 ### 5. `run_npm_script`
 
-Executes allowed package scripts and repository database commands safely from within Pi.
+Executes configured, allowlisted `pnpm` commands from within Pi. Configure the effective Pi settings in `~/.pi/agent/settings.json` or the trusted project's `.pi/settings.json`:
+
+```json
+{
+  "runNpmScript": {
+    "validScripts": ["build", "--filter=@repo/db db:sync"]
+  }
+}
+```
 
 - **Parameters**:
-  - `script` (`string`, required): Script command to execute. Must match one of the allowed scripts:
-    - `build`
-    - `lint`
-    - `lint:fix`
-    - `check-types`
-    - `format`
-    - `format:fix`
-    - `test`
-    - `--filter=@repo/db db:sync`
-    - `--filter=@repo/db db:seed:run`
-    - `--filter=@repo/db db:migration:run`
-    - `--filter=@repo/db db:generate`
+  - `script` (`string`, required): The entire permitted invocation after `pnpm`, exactly as listed in `validScripts`. No separate or appended arguments are accepted.
 - **Behavior**:
-  - Validates the requested command against the allowlist before execution.
-  - Executes `pnpm <script>` in the current working directory (`ctx.cwd`).
-  - Returns command output or captured errors and status codes.
+  - Pi merges global and trusted project settings; the project array replaces the global array. If `validScripts` is absent, nothing is permitted.
+  - An invalid namespace, non-array `validScripts`, non-string or empty entry, or unsupported shell/quoting syntax causes an extension load error. Entries must consist of plain whitespace-delimited tokens containing letters, digits, underscores, `@`, `.`, `/`, `:`, `=`, `+`, or `-`; spaces and tabs may separate tokens, but no leading/trailing whitespace is allowed.
+  - Checks the exact configured string before execution, including any pre-supplied arguments. Executes `pnpm` with separate argv tokens and `shell: false` in the current working directory (`ctx.cwd`); it never spawns an unlisted request.
+  - Returns stdout on success and captured command output or an error on failure/abort.
+  - This package source is separate from this repo's `.pi/extensions/run-npm-script.ts` copy; the latter is not configured by this setting.
+
+#### Focused manual verification
+
+In a clean session from the repo root, use `pi --no-extensions -e ./packages/pi-core/src/extensions/run-npm-script.ts` and confirm the loaded extension path before calling `run_npm_script`. Reload after changing `.pi/settings.json`; an ordinary project session uses the separate copy and does **not** verify this implementation.
+
+1. Remove `runNpmScript`: the description reports no configured commands; `{ "script": "build" }` is rejected without spawning.
+2. Set `validScripts` to `null`, `"build"`, `[1]`, `[""]`, `["build; echo unsafe"]`, or `["'build'"]`, one at a time: each reports an extension load error. Also check a wrong-type `runNpmScript` value.
+3. Set `validScripts` to `["build", "--filter=@repo/db db:sync"]`: an exact `build` request runs; `build --extra` and an unlisted command are rejected without spawning. The filtered entry runs as argv `['--filter=@repo/db', 'db:sync']`, not via a shell. Use a harmless filtered script rather than `db:sync` if the database would be affected.
+4. Configure a command that exits nonzero and one that can be aborted; verify both return `isError: true`, with command output or an abort message respectively.
 
 ---
 
