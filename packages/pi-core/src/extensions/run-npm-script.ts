@@ -22,11 +22,13 @@ export default function (pi: ExtensionAPI) {
   }
 
   const validScripts: string[] = configuredScripts === undefined ? [] : (configuredScripts as string[])
-  // Until execution uses argv, permit only shell-inert tokens (no quoting, expansion, or redirection).
+  const commands = new Map<string, string[]>()
   for (const script of validScripts) {
+    // Accept only plain whitespace-separated argv tokens, not shell syntax or quoted arguments.
     if (!/^[\w@./:=+-]+(?:[ \t]+[\w@./:=+-]+)*$/.test(script)) {
       throw new Error(`Unsupported runNpmScript.validScripts entry: "${script}"`)
     }
+    commands.set(script, script.split(/[ \t]+/))
   }
 
   const guidance = validScripts.length
@@ -37,15 +39,19 @@ export default function (pi: ExtensionAPI) {
     name: 'run_npm_script',
     label: 'Run NPM Script',
     description: `Run an allowlisted pnpm command in the current working directory. Permitted commands: ${guidance}.`,
-    parameters: Type.Object({
-      script: Type.String({
-        description: `The exact pnpm command to run. Must be one of: ${guidance}`,
-      }),
-    }),
+    parameters: Type.Object(
+      {
+        script: Type.String({
+          description: `The exact pnpm command to run. Must be one of: ${guidance}`,
+        }),
+      },
+      { additionalProperties: false },
+    ),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const script = params.script
 
-      if (!validScripts.includes(script)) {
+      const argv = commands.get(script)
+      if (!argv) {
         return {
           content: [{ type: 'text', text: `Invalid script: "${script}". Must be one of: ${guidance}` }],
           details: {},
@@ -60,7 +66,7 @@ export default function (pi: ExtensionAPI) {
           code: number | null
           error: Error | undefined
         }>((resolve) => {
-          const proc = spawn('pnpm', script.split(/[ \t]+/), { cwd: ctx.cwd, shell: false, signal })
+          const proc = spawn('pnpm', argv, { cwd: ctx.cwd, shell: false, signal })
           let stdout = ''
           let stderr = ''
           let error: Error | undefined
@@ -78,7 +84,7 @@ export default function (pi: ExtensionAPI) {
           })
         })
 
-        if (output.code === 0 && !output.error) {
+        if (output.code === 0 && !output.error && !signal?.aborted) {
           return { content: [{ type: 'text', text: output.stdout }], details: {} }
         }
         return {
@@ -86,6 +92,7 @@ export default function (pi: ExtensionAPI) {
             {
               type: 'text',
               text:
+                (signal?.aborted ? output.error?.message || 'pnpm command aborted' : undefined) ||
                 [output.stdout.trim(), output.stderr.trim()].filter(Boolean).join('\n') ||
                 output.error?.message ||
                 `pnpm exited with code ${output.code}`,

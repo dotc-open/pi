@@ -26,7 +26,7 @@ Read the namespaced `runNpmScript.validScripts` setting from Pi's effective sett
 After **EACH STEP**, run applicable code-quality checks and commit the changes, including any plan-file updates (such as checking off completed steps).
 
 - [x] Replace the hard-coded list in package source with validated `pi.getSettings()` lookup of `runNpmScript.validScripts`; enforce missing = `[]`, malformed = initialization error, and derive tool guidance from the list.
-- [ ] Keep exact-match authorization of the full configured string and a single `script` tool parameter; pre-parse each configured command into shell-free `pnpm` argv at initialization, reject unsupported syntax, and preserve filtered database scripts and existing success/error/abort behavior. Never accept free-form arguments from tool calls.
+- [x] Keep exact-match authorization of the full configured string and a single `script` tool parameter; pre-parse each configured command into shell-free `pnpm` argv at initialization, reject unsupported syntax, and preserve filtered database scripts and existing success/error/abort behavior. Never accept free-form arguments from tool calls.
 - [ ] Move the existing entries to `.pi/settings.json`, update `packages/pi-core/README.md`, and add focused verification coverage as feasible without assuming a test runner exists. Do not change the `.pi` extension copy.
 
 ## Verification
