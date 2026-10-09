@@ -2,6 +2,9 @@
   "packages": ["npm:@chrischow/pi-lockdown", "npm:@plannotator/pi-extension", "npm:@dotc/pi-platform-ai-provider"],
   "defaultProvider": "platform-ai",
   "defaultModel": "gemini-3.8-flash",
+  "runNpmScript": {
+    "validScripts": ["build", "lint", "lint:fix", "check-types", "format", "format:fix"]
+  },
   "lockdown": {
     "customTools": {
       "current_date": "allow",

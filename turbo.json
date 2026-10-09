@@ -11,6 +11,11 @@
     },
     "check-types": {
       "dependsOn": ["^check-types"]
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**/*", "tsconfig*.json"],
+      "outputs": ["dist/**"]
     }
   }
 }
