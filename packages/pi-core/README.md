@@ -135,9 +135,6 @@ Executes configured, allowlisted package-manager commands (`npm` or `pnpm`) from
   - `validScripts` (`string[]`): Allowlisted invocations; each entry may be a single token or a whitespace-separated multi-token invocation.
 - **Parameters**:
   - `script` (`string`, required): The entire permitted invocation, exactly as listed in `validScripts`. No separate or appended arguments are accepted.
-- **Invocation forms**:
-  - With `"pnpm"`: the configured string is spawned as `pnpm <script>` with each whitespace-separated token as a separate argv entry (e.g. `build --watch` runs `pnpm build --watch`).
-  - With `"npm"`: the configured string is spawned as `npm run <script>` (e.g. `build --watch` runs `npm run build --watch`).
 - **Behavior**:
   - For valid settings, the effective allowlist is selected in the order specified below. Project and global arrays are **not merged**.
     - Trusted project's `runNpmScript.validScripts` array, **even if it is empty**
