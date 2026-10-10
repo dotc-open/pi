@@ -1,0 +1,42 @@
+on:
+  release:
+    types: [released]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - id: extract_pkg_name
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          [[ "$TAG" == *@* ]] || { echo "bad tag: $TAG" >&2; exit 1; }
+          echo "package=${TAG%@*}" >> "$GITHUB_OUTPUT"
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.10.1
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Format
+        run: pnpm exec prettier --check "packages/${{ steps.extract_pkg_name.outputs.package }}/**/*.{ts,js,mjs,json,yaml,yml,md}"
+      - name: Lint
+        run: pnpm --filter @dotc/${{ steps.extract_pkg_name.outputs.package }} lint
+      - name: Check Types
+        run: pnpm --filter @dotc/${{ steps.extract_pkg_name.outputs.package }} check-types
+      - name: Publish to NPM
+        run: pnpm --filter @dotc/${{ steps.extract_pkg_name.outputs.package }} stage publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

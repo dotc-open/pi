@@ -4,24 +4,29 @@ A repository for DOTC's Pi packages.
 
 ## Packages
 
+| Package                                                             | Description                                                                                                                         |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [`@dotc/pi-core`](packages/pi-core)                                 | A collection of core extensions and tools for the Pi coding agent, including subagent delegation, Git workflows, and utility tools. |
+| [`@dotc/pi-platform-ai-provider`](packages/pi-platform-ai-provider) | Integrates Platform AI with Pi as a provider and adds LiteLLM session tracking headers.                                             |
+
 ## Release Steps
 
-### 1. Bump version
+### 1. Create release branch
+
+Create a release branch with the name `chore(release): <package_name>@<semVer>`. For example, `chore(release): pi-core@0.3.0`.
 
 Bump the version:
 
 ```bash
-pnpm --filter <package> version <major|minor|patch>
+pnpm --filter @dotc/<package_name> version <major|minor|patch>
 ```
 
-### 2. Merge changes
+### 2. Merge MR and add release tag
 
-Open an MR, iterate, and merge.
-
-After merging, add a tag to the merged commit:
+Once approved, merge to `develop`. After merging, **pull `develop`** and add a tag to the merge commit:
 
 ```bash
-git tag -a "<package name>@<version>" -m "<package name>@<version>"
+git tag -a "<package_name>@<version>" -m "<package_name>@<version>"
 ```
 
 Example: `git tag -a "pi-platform-ai-provider@0.1.0" -m "pi-platform-ai-provider@0.1.0"`
@@ -32,33 +37,26 @@ Push tags to remote:
 git push --tags
 ```
 
-### 3. Prepare release
+### 3. Create release via UI
 
-Run a build:
+1. Click on **Releases**
+2. Click **Draft a new release**
+3. Select the tag that was just created
+4. Click **Generate release notes**
+5. Click **Publish**
 
-```bash
-pnpm --filter <package> build
-```
+CI will run code quality checks and publish to npm. Check the **Actions** tab and verify that CI passes.
 
-### 4. Publish (Manual)
+### 4. Approve package
 
-Ensure that you have been added to the [DOTC organisation](https://www.npmjs.com/org/dotc).
+Go to the [DOTC organisation on npm](https://www.npmjs.com/settings/dotc/packages) and approve the staged package with 2FA.
 
-Login:
+## Maintenance
 
-```bash
-pnpm login
-```
-
-Publish:
-
-```bash
-pnpm --filter <package> publish --access public --publish-branch develop
-```
-
-While waiting for npm to publish the package, add a release on GitHub by:
-
-1. Click **Create a new release**
-2. Select the tag we just created
-3. Click **Generate release notes**
-4. Click **Publish**
+- If publishing fails, check whether the npm token is still valid. The token has a maximum expiry of 90 days.
+- Token settings:
+  - Bypass 2FA: `Checked`
+  - Permissions: `Read and write (stage only)`
+  - Selected scopes: `@dotc` only
+  - Organisation permissions: `No access`
+  - Expiration date: `90 days`
