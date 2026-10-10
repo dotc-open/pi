@@ -8,8 +8,6 @@ permissions:
 
 jobs:
   publish:
-    # TODO: Update
-    if: github.event.release.target_commitish == 'ci/init_workflow'
     runs-on: ubuntu-latest
     steps:
       - id: extract_pkg_name
