@@ -3,6 +3,10 @@ on:
   push:
     branches:
       - '**'
+    paths-ignore:
+      - '.agents/**'
+      - '.pi/**'
+      - 'plans/**'
 
 permissions:
   contents: read
