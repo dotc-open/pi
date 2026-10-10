@@ -33,9 +33,10 @@ jobs:
       - name: Format
         run: pnpm exec prettier --check "packages/${{ steps.extract_pkg_name.outputs.package }}/**/*.{ts,js,mjs,json,yaml,yml,md}"
       - name: Lint
-        run: pnpm lint --filter @dotc/${{ steps.extract_pkg_name.outputs.package }}
+        run: pnpm --filter @dotc/${{ steps.extract_pkg_name.outputs.package }} lint
       - name: Check Types
-        run: pnpm check-types --filter @dotc/${{ steps.extract_pkg_name.outputs.package }}
+        run: pnpm --filter @dotc/${{ steps.extract_pkg_name.outputs.package }} check-types
       - name: Publish to NPM
-        # TODO: Update
-        run: echo "${{ steps.extract_pkg_name.outputs.package }}"
+        run: pnpm --filter @dotc/${{ steps.extract_pkg_name.outputs.package }} stage publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
