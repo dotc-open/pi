@@ -4,6 +4,11 @@ A repository for DOTC's Pi packages.
 
 ## Packages
 
+| Package                                                             | Description                                                                                                                         |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [`@dotc/pi-core`](packages/pi-core)                                 | A collection of core extensions and tools for the Pi coding agent, including subagent delegation, Git workflows, and utility tools. |
+| [`@dotc/pi-platform-ai-provider`](packages/pi-platform-ai-provider) | Integrates Platform AI with Pi as a provider and adds LiteLLM session tracking headers.                                             |
+
 ## Release Steps
 
 ### 1. Create release branch
