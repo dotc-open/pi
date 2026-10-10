@@ -5,6 +5,21 @@
     "npm:@dotc/pi-platform-ai-provider",
     "npm:@dotc/pi-core"
   ],
+  "modelThinkingLevels": {
+    "platform-ai/gemini-3.8-flash": "medium",
+    "platform-ai/azure.claude-haiku-5-5": "medium",
+    "platform-ai/bedrock.claude-haiku-5-5": "medium",
+    "platform-ai/vertex_ai.claude-haiku-5-5": "medium",
+    "platform-ai/azure.claude-sonnet-5-5": "medium",
+    "platform-ai/bedrock.claude-sonnet-5-5": "medium",
+    "platform-ai/vertex_ai.claude-sonnet-5-5": "medium",
+    "platform-ai/azure.claude-opus-5-5": "medium",
+    "platform-ai/bedrock.claude-opus-5-5": "medium",
+    "platform-ai/vertex_ai.claude-opus-5-5": "medium",
+    "platform-ai/gpt-6-luna": "medium",
+    "platform-ai/gpt-6-sol": "medium",
+    "platform-ai/gpt-6.1-sol": "medium"
+  },
   "runNpmScript": {
     "packageManager": "pnpm",
     "validScripts": [
