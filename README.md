@@ -54,3 +54,9 @@ Go to the [DOTC organisation on npm](https://www.npmjs.com/settings/dotc/package
 ## Maintenance
 
 - If publishing fails, check whether the npm token is still valid. The token has a maximum expiry of 90 days.
+- Token settings:
+  - Bypass 2FA: `Checked`
+  - Permissions: `Read and write (stage only)`
+  - Selected scopes: `@dotc` only
+  - Organisation permissions: `No access`
+  - Expiration date: `90 days`
