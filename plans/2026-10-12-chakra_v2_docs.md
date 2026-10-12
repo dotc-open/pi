@@ -81,6 +81,16 @@ Source verification is a delivery gate. If it fails, record the findings and rev
 
 Implementation should proceed in these independently reviewable increments:
 
+Status for step 1: implementation, source inspection, formatting, lint, type checks, and build complete. Lint reports only existing warnings in pi-core. Automated tests deferred at the user's request. Step 2's in-session verification is not yet complete.
+
+- [x] Verify and pin Chakra repository v2 branch revision `a1005f7f129f225058e7616c52e580b6cf8dcfdc`. The website uses workspace `@chakra-ui/react`; `packages/components/package.json` identifies version 2.10.10. This replaces the initially verified 2.8.2 snapshot from the former docs repository.
+- [x] Inspect the replacement source's Button (7,234 bytes) and Modal (14,547 bytes); their relevant examples are inline and fit below the 100,000-character output cap. Button is shorter than the former snapshot and Modal has the same Git blob hash. Record provenance and limitations in the package README.
+- [x] Register the docs tool through the package entry point; validate slugs, distinguish HTTP errors, forward cancellation, and mark truncated output.
+- [ ] Add deterministic automated checks — deferred by the user; not verified.
+- [x] Pass formatting, lint, type checks, and build.
+- [ ] Review step 1 changes and obtain commit approval.
+- [ ] Complete step 2's reload and direct tool verification before implementing search.
+
 1. Verify and record the v2 source revision, representative page evidence, and supported slug/path conventions. Measure representative page sizes to validate the output cap, and inspect MDX imports/custom components for missing examples. Confirm that returned docs let the agent answer concrete questions about Button loading state and Modal usage without rendering the site. Implement and register the docs tool through the package entry point. Add a small runnable check covering valid and invalid slugs, successful output, truncation, missing pages, HTTP failure, network failure, and cancellation. Run lint, type checks, build, and formatting checks.
 2. Pause for the user to start or reload Pi with the package source loaded. Exercise the registered docs tool in-session with a known component such as `button`, an invalid slug such as `../button`, and a nonexistent component. Also smoke-test compiled-package loading after building. Do not claim runtime verification before this handoff succeeds.
 3. If the v2 inventory and links are verified, add and register static search in a separate change. Check exact, partial, whitespace-normalized, and `kbd` alias queries; blank input; and no matches. Verify that returned slugs can be resolved by the docs tool, or clearly exclude entries that are not supported. Repeat repository checks and hand off for reload and direct in-session search calls.
