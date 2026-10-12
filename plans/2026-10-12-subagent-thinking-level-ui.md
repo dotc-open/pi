@@ -26,6 +26,16 @@ After **EACH STEP**, run code quality checks and commit changes, including updat
 - [x] Capture child-reported thinking metadata alongside the summarized model, then append the level separately after the existing usage/model string in all per-agent UI lines without changing `formatUsageStats`.
 - [ ] Run quality checks and prepare manual verification; pause for the user to reload the updated workspace extension, then verify directly in the session. Do not add an automated test harness.
 
+## Execution checkpoint
+
+- Step 1 committed as `9fada7b`.
+- `pnpm lint:fix`, `pnpm check-types`, and `pnpm format:fix` passed. Lint reported 15 warnings in unchanged code.
+- Built the workspace extension with `pnpm --filter @dotc/pi-core build`.
+- Step 2 remains pending live verification. The project settings load `npm:@dotc/pi-core`; load the updated local workspace package (whose extension entry points use `dist`) before reloading the session.
+- After reload, verify single mode with `thinkingLevel: "high"` and without an override; expanded parallel and chain results with a shared override; and a chain task containing `{previous}`. Confirm the displayed value against the child's first assistant response metadata, not the requested override.
+- Different agent defaults cannot currently be compared: only the project `scout` agent is available and it has no explicit thinking default. Ask the user for a second agent with a different default before that check.
+- Missing-metadata omission and unchanged aggregate summaries passed source review; live legacy/missing-metadata and capability-clamping checks still need suitable responses/models. No automated test harness was added.
+
 ## Verification
 
 - Run `pnpm lint:fix`, `pnpm check-types`, and `pnpm format:fix`; review any fixes before committing.
