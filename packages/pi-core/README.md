@@ -65,6 +65,42 @@ Spawns separate `pi` child processes in isolated contexts with JSON communicatio
   }
   ```
 
+#### Thinking Level
+
+Set optional top-level `thinkingLevel` to control every agent dispatched by a single, parallel, or chain call:
+
+```json
+{
+  "agent": "scout",
+  "task": "Investigate repo structure",
+  "thinkingLevel": "high"
+}
+```
+
+Agents can also specify a default in Markdown frontmatter:
+
+```yaml
+---
+name: reviewer
+description: Review proposed changes
+thinkingLevel: low
+---
+```
+
+Accepted values are `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`. Invalid agent-definition values fail discovery with an error identifying the file.
+
+Resolution for each dispatched agent is:
+
+1. Top-level tool-call `thinkingLevel` (shared by all tasks).
+2. That agent's frontmatter `thinkingLevel`.
+3. The selected model's `modelThinkingLevels` entry in child Pi settings.
+4. Child Pi's global `defaultThinkingLevel`.
+5. Built-in `medium`.
+
+With neither override set, the child receives no `--thinking` flag, whether its model is explicit or inherited. The parent's active thinking level is never inherited. Pi may clamp the resolved level to the selected model's capabilities.
+
+Parallel and chain calls can use different agent-definition defaults; a top-level override replaces all of them. There is no per-task or per-chain-step thinking parameter.
+
 #### Agent Discovery and Scopes
 
 Agents are defined as Markdown files with YAML frontmatter:
