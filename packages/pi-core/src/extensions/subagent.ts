@@ -464,12 +464,10 @@ async function runSingleAgent(
   }
 
   const args: string[] = ['--mode', 'json', '-p', '--no-session']
-  const inheritsDispatchConfig = !agent.model
   const model = agent.model ?? dispatchDefaults.model
   if (model) args.push('--model', model)
-  if (inheritsDispatchConfig && dispatchDefaults.thinkingLevel) {
-    args.push('--thinking', dispatchDefaults.thinkingLevel)
-  }
+  const thinkingLevel = dispatchDefaults.thinkingLevel ?? agent.thinkingLevel
+  if (thinkingLevel !== undefined) args.push('--thinking', thinkingLevel)
   if (agent.tools && agent.tools.length > 0) args.push('--tools', agent.tools.join(','))
 
   let tmpPromptDir: string | null = null
@@ -658,7 +656,7 @@ export default function (pi: ExtensionAPI) {
       const agentScope: AgentScope = params.agentScope ?? 'project'
       const dispatchDefaults: DispatchDefaults = {
         model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined,
-        thinkingLevel: ctx.thinkingLevel,
+        thinkingLevel: params.thinkingLevel,
       }
       const discovery = discoverAgents(ctx.cwd, agentScope)
       const agents = discovery.agents
