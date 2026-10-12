@@ -22,6 +22,8 @@ These files are implementation references, not proof of source provenance. The d
 
 ## Requirements
 
+User-approved search revision: replace the maintained static list with one GitHub Contents API request at the shared docs revision. An omitted/blank query lists all component directories; an optional query filters names. Return names only, forward cancellation, and report HTTP/network/response errors without a static fallback. This supersedes the static-inventory, links, blank-query rejection, and alias requirements below. Automated tests remain deferred at the user's request.
+
 ### Functional requirements
 
 - Export an extension factory through `src/index.ts`, compiled to the existing `dist/index.js` package entry point.
@@ -81,7 +83,7 @@ Source verification is a delivery gate. If it fails, record the findings and rev
 
 Implementation should proceed in these independently reviewable increments:
 
-Status for step 1: implementation, source inspection, formatting, lint, type checks, and build complete. Lint reports only existing warnings in pi-core. Automated tests deferred at the user's request. Step 2's in-session verification is not yet complete.
+Status for step 1: implementation, source inspection, formatting, lint, type checks, and build complete. Lint reports only existing warnings in pi-core. Automated tests deferred at the user's request. The user confirmed the docs tool works after the reload handoff; direct calls are unavailable to this agent, and compiled-package verification has not been separately recorded.
 
 - [x] Verify and pin Chakra repository v2 branch revision `a1005f7f129f225058e7616c52e580b6cf8dcfdc`. The website uses workspace `@chakra-ui/react`; `packages/components/package.json` identifies version 2.10.10. This replaces the initially verified 2.8.2 snapshot from the former docs repository.
 - [x] Inspect the replacement source's Button (7,234 bytes) and Modal (14,547 bytes); their relevant examples are inline and fit below the 100,000-character output cap. Button is shorter than the former snapshot and Modal has the same Git blob hash. Record provenance and limitations in the package README.
@@ -89,7 +91,11 @@ Status for step 1: implementation, source inspection, formatting, lint, type che
 - [ ] Add deterministic automated checks — deferred by the user; not verified.
 - [x] Pass formatting, lint, type checks, and build.
 - [ ] Review step 1 changes and obtain commit approval.
-- [ ] Complete step 2's reload and direct tool verification before implementing search.
+- [x] User confirmed the docs tool works after the reload handoff; not independently tested by this agent.
+- [ ] Record compiled-package smoke-test results separately.
+- [x] Verify usage paths in pinned component tree `de6c194f3821188c2fcb6ab2e98a941651274817`; replace the static inventory with the GitHub directory API at the shared docs revision, per user approval. The directory endpoint returned a JSON array of component directories when fetched during implementation.
+- [x] Pass formatting, lint, type checks, and build after the directory API change; only existing pi-core lint warnings remain.
+- [ ] Reload and verify component listing (omitted/blank query), exact/partial/normalized queries, no results, and lookup-to-fetch flow. Automated checks remain deferred at the user's request. Per user feedback, search now fetches directory names from GitHub and omits special alias handling; no maintained list, separate list tool, or action parameter. Also verify request failure and cancellation after reload.
 
 1. Verify and record the v2 source revision, representative page evidence, and supported slug/path conventions. Measure representative page sizes to validate the output cap, and inspect MDX imports/custom components for missing examples. Confirm that returned docs let the agent answer concrete questions about Button loading state and Modal usage without rendering the site. Implement and register the docs tool through the package entry point. Add a small runnable check covering valid and invalid slugs, successful output, truncation, missing pages, HTTP failure, network failure, and cancellation. Run lint, type checks, build, and formatting checks.
 2. Pause for the user to start or reload Pi with the package source loaded. Exercise the registered docs tool in-session with a known component such as `button`, an invalid slug such as `../button`, and a nonexistent component. Also smoke-test compiled-package loading after building. Do not claim runtime verification before this handoff succeeds.

@@ -2,13 +2,17 @@
 
 Chakra UI v2 component usage documentation for Pi.
 
-## Tool
+## Tools
 
 `chakra_v2_docs` takes a `component` string such as `button` or `modal`. It trims and lowercases the input, validates a kebab-case slug, and fetches the component's usage MDX. Output includes the pinned source URL and revision metadata.
 
 Missing pages, HTTP failures, network failures, and cancellation fail the tool call. The returned documentation body is capped at 100,000 characters to protect model context; truncation is marked and the source URL provides access to the complete page. This is not a download-size limit.
 
-Search is not registered yet. The supplied search implementation remains a reference for a later, verified component-name lookup, not full-text search.
+`chakra_v2_search` lists available component names when called with `{}` or an empty query. Supply an optional `query` to filter names by substring. Matching is case-insensitive and converts whitespace to hyphens (`icon button` → `icon-button`). Pass a returned name to `chakra_v2_docs` to fetch its documentation. Unmatched queries return a no-results message.
+
+Listing and search make one request to the [GitHub directory API](https://api.github.com/repos/chakra-ui/chakra-ui/contents/website/content/docs/components?ref=a1005f7f129f225058e7616c52e580b6cf8dcfdc), using the same pinned revision as the docs tool. Only directory names are returned, sorted alphabetically; there is no maintained component list or full-text search. At this snapshot, usage paths were verified against the [component tree](https://api.github.com/repos/chakra-ui/chakra-ui/git/trees/de6c194f3821188c2fcb6ab2e98a941651274817?recursive=1). The tool does not check each directory's usage file on every call.
+
+Search requires network access and is subject to GitHub's unauthenticated API rate limits. HTTP errors (including rate limits), network failures, malformed responses, and cancellation fail the tool call; there is no cached or static fallback.
 
 ## Source provenance
 
@@ -29,7 +33,7 @@ Button is shorter than the former 2.8.2 docs snapshot (8,290 bytes), removing th
 
 Raw MDX preserves prose and fenced JSX, but this tool does not render custom MDX components, resolve imported examples, or fetch generated prop tables. Coverage of these features on other pages has not been verified.
 
-To update the snapshot, verify the candidate revision's Chakra major version, page paths, representative examples, and page sizes. Then update `DOCS_REVISION` in `src/chakra-v2-docs.ts` and the provenance above together. Do not replace the pin with a moving branch or silently fall back to current-version docs.
+To update the snapshot, verify the candidate revision's Chakra major version, page paths, representative examples, and page sizes. Then update the shared `DOCS_REVISION` in `src/chakra-v2-docs.ts` and the provenance above together. Search uses that same revision automatically; verify that its component directories still contain usage files. Do not replace the pin with a moving branch or silently fall back to current-version docs.
 
 ## Local development
 
@@ -41,6 +45,8 @@ pi -e ./packages/pi-chakra-v2-docs/src/index.ts
 ```
 
 Ask Pi to call `chakra_v2_docs` with `{ "component": "button" }`. This is an agent tool, not a slash command; the scaffold's `/chakra-v2-docs` command has been replaced. After editing the source, run `/reload`.
+
+If using Lockdown, include `chakra_v2_docs` and `chakra_v2_search` in its `customTools` permissions; otherwise registered tools may not be activated. Configure the main and subagent scopes separately as needed.
 
 ## Verify the package
 
@@ -55,4 +61,4 @@ pi -e ./packages/pi-chakra-v2-docs
 
 The package directory loads compiled `dist/index.js`. Rebuild after source changes before reloading that session.
 
-In each loading mode, exercise the tool with `button`, `modal`, `../button` (validation failure), and `nonexistent-component` (missing page). Automated tests are deferred for now; HTTP/network failures, truncation, and cancellation still require runtime verification.
+In each loading mode, exercise the tool with `button`, `modal`, `../button` (validation failure), and `nonexistent-component` (missing page). For search, check `{}` (all components), `modal` (exact match), `button` (button, icon-button, close-button), `Icon   Button` (icon-button), whitespace-only input (all components), and `nonexistent-component` (no results). Fetch one returned slug with `chakra_v2_docs` to verify the lookup-to-fetch flow. Automated tests are deferred for now; search behavior, HTTP/network failures, truncation, and cancellation still require runtime verification.

@@ -1,54 +1,62 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
 
-// Snapshot of https://v2.chakra-ui.com/docs/components/button/usage (v2.10.10),
-// including its Layout section and the user-provided component categories.
-const COMPONENTS = `
-aspect-ratio box center container flex grid simple-grid stack wrap
-button checkbox editable form-control icon-button input number-input pin-input radio range-slider select slider switch textarea
-badge card code divider kbd list stat table tag
-alert circular-progress progress skeleton spinner toast
-text heading highlight
-alert-dialog drawer menu modal popover tooltip
-accordion tabs visually-hidden
-breadcrumb link link-overlay skip-nav stepper
-avatar icon image
-close-button portal show-hide transitions
-`
-  .trim()
-  .split(/\s+/)
+import { DOCS_REVISION } from './chakra-v2-docs.js'
+
+const COMPONENTS_URL = `https://api.github.com/repos/chakra-ui/chakra-ui/contents/website/content/docs/components?ref=${DOCS_REVISION}`
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: 'chakra_v2_search',
     label: 'Search Chakra UI v2 Components',
     description:
-      'Search the static Chakra UI v2.10.10 component list by name and return links to v2 docs. No live search index or network request is needed.',
+      'List available Chakra UI v2 components from GitHub, or search their names with a query. Use a returned name with chakra_v2_docs. Requires network access.',
     promptSnippet: 'Find Chakra UI v2 component documentation',
     promptGuidelines: ['Use chakra_v2_search to find a Chakra UI v2 component slug before calling chakra_v2_docs.'],
     parameters: Type.Object({
-      query: Type.String({ description: 'Component name or part of a name.' }),
+      query: Type.Optional(
+        Type.String({ description: 'Component name or partial name. Omit to list all components.' }),
+      ),
     }),
-    async execute(_toolCallId, params) {
-      const query = params.query.trim().toLowerCase()
-      if (!query) throw new Error('Query must not be empty.')
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      const response = await fetch(COMPONENTS_URL, {
+        headers: { Accept: 'application/vnd.github+json' },
+        signal: signal ?? ctx.signal ?? null,
+      })
+      if (!response.ok) {
+        throw new Error(
+          `Chakra UI v2 search: HTTP request failed: ${response.status} ${response.statusText} (${COMPONENTS_URL})`,
+        )
+      }
 
-      const term = query.replace(/\s+/g, '-')
-      const matches = COMPONENTS.filter(
-        (component) => component.includes(term) || (component === 'kbd' && 'keyboard-key'.includes(term)),
-      )
+      const entries: unknown = await response.json()
+      if (!Array.isArray(entries)) throw new Error('Chakra UI v2 search: Expected a GitHub directory listing.')
+
+      const components: string[] = []
+      for (const entry of entries as unknown[]) {
+        if (
+          typeof entry !== 'object' ||
+          entry === null ||
+          !('type' in entry) ||
+          typeof entry.type !== 'string' ||
+          !('name' in entry) ||
+          typeof entry.name !== 'string'
+        ) {
+          throw new Error('Chakra UI v2 search: Invalid GitHub directory entry.')
+        }
+        if (entry.type === 'dir') components.push(entry.name)
+      }
+
+      const query = (params.query ?? '').trim().toLowerCase().replace(/\s+/g, '-')
+      const matches = components.filter((component) => component.includes(query)).sort()
       return {
         content: [
           {
             type: 'text',
-            text: matches.length
-              ? matches
-                  .map((component) => `${component}: https://v2.chakra-ui.com/docs/components/${component}`)
-                  .join('\n')
-              : 'No Chakra UI v2 components found.',
+            text: matches.length ? matches.join(', ') : 'No Chakra UI v2 components found.',
           },
         ],
-        details: { matches },
+        details: { matches, url: COMPONENTS_URL, revision: DOCS_REVISION },
       }
     },
   })
