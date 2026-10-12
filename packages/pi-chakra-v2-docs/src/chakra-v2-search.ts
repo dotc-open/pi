@@ -10,9 +10,8 @@ export default function (pi: ExtensionAPI) {
     name: 'chakra_v2_search',
     label: 'Search Chakra UI v2 Components',
     description:
-      'List available Chakra UI v2 components from GitHub, or search their names with a query. Use a returned name with chakra_v2_docs. Requires network access.',
-    promptSnippet: 'Find Chakra UI v2 component documentation',
-    promptGuidelines: ['Use chakra_v2_search to find a Chakra UI v2 component slug before calling chakra_v2_docs.'],
+      'List or search available Chakra UI v2 components. Omit query or pass an empty string to list all components; provide query to filter names. Use a returned name with chakra_v2_docs. Requires network access to GitHub.',
+    promptSnippet: 'List or search Chakra UI v2 components',
     parameters: Type.Object({
       query: Type.Optional(
         Type.String({ description: 'Component name or partial name. Omit to list all components.' }),
