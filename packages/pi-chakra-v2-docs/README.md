@@ -46,7 +46,67 @@ pi -e ./packages/pi-chakra-v2-docs/src/index.ts
 
 Ask Pi to call `chakra_v2_docs` with `{ "component": "button" }`. This is an agent tool, not a slash command; the scaffold's `/chakra-v2-docs` command has been replaced. After editing the source, run `/reload`.
 
-If using Lockdown, include `chakra_v2_docs` and `chakra_v2_search` in its `customTools` permissions; otherwise registered tools may not be activated. Configure the main and subagent scopes separately as needed.
+## Lockdown permissions
+
+If using `@chrischow/pi-lockdown`, explicitly configure both tools; otherwise registered tools may not be activated. Merge the following into your Pi settings (for example, `.pi/settings.json`), preserving existing permissions:
+
+```json
+{
+  "lockdown": {
+    "customTools": {
+      "chakra_v2_docs": "warn",
+      "chakra_v2_search": "warn"
+    }
+  }
+}
+```
+
+`warn` requests approval; use `allow` only if you want these network requests to run without prompting. Both tools contact GitHub using native `fetch`; they do not require the separate `fetch_url` tool. This package does not change your permissions automatically.
+
+## Optional subagent research
+
+The docs tool's description asks the agent to prefer delegation for documentation research **when the `subagent` tool and a child agent with Chakra docs access are available**. The child should return relevant examples and source URLs rather than the full MDX. This is model guidance, not enforced routing: direct calls remain supported, and neither a subagent extension nor a skill is required for normal use.
+
+For the `subagent` tool supplied by `@dotc/pi-core`:
+
+1. Make this package available through the child session's package/extension configuration, not just the parent session. This subagent implementation starts a separate Pi process and does not forward the parent's `-e` arguments. Loading the source with `pi -e ...` alone is therefore insufficient for child access.
+2. If your agent definition has an explicit `tools` list, add `chakra_v2_search` and `chakra_v2_docs`. For a project `scout`, edit `.pi/agents/scout.md`; for a personal agent, edit `~/.pi/agent/agents/scout.md`. Preserve the agent's existing tools and other frontmatter. For example, a docs-capable scout could have:
+
+   ```yaml
+   tools: read, grep, find, ls, chakra_v2_search, chakra_v2_docs
+   ```
+
+3. If using Lockdown, permit the parent's delegation tool and configure the child's tools separately. Merge these entries into existing settings:
+
+   ```json
+   {
+     "lockdown": {
+       "customTools": {
+         "subagent": "warn"
+       }
+     },
+     "lockdownSubagent": {
+       "customTools": {
+         "chakra_v2_docs": "allow",
+         "chakra_v2_search": "allow"
+       }
+     }
+   }
+   ```
+
+   The child `allow` entries authorize unattended GitHub requests; enable them only if acceptable for your workflow. Parent permissions do not grant child permissions. Other subagent implementations may use different configuration.
+
+4. Reload the parent session after configuration changes. Ask it to delegate a small request to `scout`, such as listing components with `chakra_v2_search({})`, fetching Button docs, and returning a brief summary with its pinned source URL. Verify the child actually calls the Chakra tools; parent-only success does not establish child access. Use project agent scope for `.pi/agents/scout.md`, or user/both scope for a personal agent.
+
+### Explicit delegation with a prompt template
+
+This repository's `.pi/prompts/with_subagent.md` is an optional prompt template that delegates information gathering to `scout` through the `subagent` tool. It is not itself a tool and is not bundled by this package. If you have that template loaded, invoke it by its filename-derived command:
+
+```text
+/with_subagent Research Chakra UI v2 Button loading states using chakra_v2_docs. Return relevant examples and source URLs, not the full MDX.
+```
+
+Without the template, simply ask Pi to delegate the same research to a docs-capable subagent. No new skill or prompt template is needed for the automatic preference.
 
 ## Verify the package
 
