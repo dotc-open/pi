@@ -43,6 +43,7 @@ export interface AgentConfig {
   description: string
   tools?: string[] | undefined
   model?: string | undefined
+  thinkingLevel?: ThinkingLevel | undefined
   systemPrompt: string
   source: 'user' | 'project'
   filePath: string
@@ -66,6 +67,17 @@ type AgentFrontmatter = {
   description?: unknown
   tools?: unknown
   model?: unknown
+  thinkingLevel?: unknown
+}
+
+const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
+
+function parseThinkingLevel(value: unknown, filePath: string): ThinkingLevel | undefined {
+  if (value === undefined) return undefined
+  if (typeof value === 'string' && THINKING_LEVELS.some((level) => level === value)) {
+    return value as ThinkingLevel
+  }
+  throw new Error(`Invalid thinkingLevel in agent "${filePath}". Expected one of: ${THINKING_LEVELS.join(', ')}.`)
 }
 
 /**
@@ -121,11 +133,14 @@ function loadAgentsFromDir(dir: string, source: 'user' | 'project'): AgentConfig
       continue
     }
 
+    const thinkingLevel = parseThinkingLevel(frontmatter.thinkingLevel, filePath)
+
     agents.push({
       name: frontmatter.name,
       description: frontmatter.description,
       tools: parseToolList(frontmatter.tools),
       model: typeof frontmatter.model === 'string' ? frontmatter.model : undefined,
+      thinkingLevel,
       systemPrompt: body,
       source,
       filePath,
@@ -304,6 +319,7 @@ interface SingleResult {
   stderr: string
   usage: UsageStats
   model?: string | undefined
+  thinkingLevel?: ThinkingLevel | undefined
   stopReason?: string | undefined
   errorMessage?: string | undefined
   step?: number | undefined
@@ -449,12 +465,10 @@ async function runSingleAgent(
   }
 
   const args: string[] = ['--mode', 'json', '-p', '--no-session']
-  const inheritsDispatchConfig = !agent.model
   const model = agent.model ?? dispatchDefaults.model
   if (model) args.push('--model', model)
-  if (inheritsDispatchConfig && dispatchDefaults.thinkingLevel) {
-    args.push('--thinking', dispatchDefaults.thinkingLevel)
-  }
+  const thinkingLevel = dispatchDefaults.thinkingLevel ?? agent.thinkingLevel
+  if (thinkingLevel !== undefined) args.push('--thinking', thinkingLevel)
   if (agent.tools && agent.tools.length > 0) args.push('--tools', agent.tools.join(','))
 
   let tmpPromptDir: string | null = null
@@ -526,7 +540,10 @@ async function runSingleAgent(
               currentResult.usage.cost += usage.cost?.total || 0
               currentResult.usage.contextTokens = usage.totalTokens || 0
             }
-            if (!currentResult.model && msg.model) currentResult.model = msg.model
+            if (currentResult.usage.turns === 1) {
+              if (msg.model) currentResult.model = msg.model
+              if (msg.thinkingLevel !== undefined) currentResult.thinkingLevel = msg.thinkingLevel
+            }
             if (msg.stopReason) currentResult.stopReason = msg.stopReason
             if (msg.errorMessage) currentResult.errorMessage = msg.errorMessage
           }
@@ -613,6 +630,12 @@ const SubagentParams = Type.Object({
   task: Type.Optional(Type.String({ description: 'Task to delegate (for single mode)' })),
   tasks: Type.Optional(Type.Array(TaskItem, { description: 'Array of {agent, task} for parallel execution' })),
   chain: Type.Optional(Type.Array(ChainItem, { description: 'Array of {agent, task} for sequential execution' })),
+  thinkingLevel: Type.Optional(
+    StringEnum(THINKING_LEVELS, {
+      description:
+        'Thinking level shared by all dispatched agents: off, minimal, low, medium, high, xhigh, max. Overrides agent definitions; when omitted, use the agent definition or child Pi startup settings, not the parent active level.',
+    }),
+  ),
   agentScope: Type.Optional(AgentScopeSchema),
   confirmProjectAgents: Type.Optional(
     Type.Boolean({ description: 'Prompt before running project-local agents. Default: true.', default: true }),
@@ -627,6 +650,7 @@ export default function (pi: ExtensionAPI) {
     description: [
       'Delegate tasks to specialized subagents with isolated context.',
       'Modes: single (agent + task), parallel (tasks array), chain (sequential with {previous} placeholder).',
+      'Optional top-level thinkingLevel applies to every task: tool value > agent definition > child modelThinkingLevels > defaultThinkingLevel > medium. Pi may clamp levels to model capabilities; the parent active thinking level is not inherited.',
       `Default agent scope is "user" (from ${path.join(getAgentDir(), 'agents')}).`,
       `To enable project-local agents in ${CONFIG_DIR_NAME}/agents, set agentScope: "both" (or "project").`,
     ].join(' '),
@@ -636,7 +660,7 @@ export default function (pi: ExtensionAPI) {
       const agentScope: AgentScope = params.agentScope ?? 'project'
       const dispatchDefaults: DispatchDefaults = {
         model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined,
-        thinkingLevel: ctx.thinkingLevel,
+        thinkingLevel: params.thinkingLevel,
       }
       const discovery = discoverAgents(ctx.cwd, agentScope)
       const agents = discovery.agents
@@ -973,7 +997,7 @@ export default function (pi: ExtensionAPI) {
               container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme))
             }
           }
-          const usageStr = formatUsageStats(r.usage, r.model)
+          const usageStr = [formatUsageStats(r.usage, r.model), r.thinkingLevel].filter(Boolean).join(' ')
           if (usageStr) {
             container.addChild(new Spacer(1))
             container.addChild(new Text(theme.fg('dim', usageStr), 0, 0))
@@ -989,7 +1013,7 @@ export default function (pi: ExtensionAPI) {
           text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`
           if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg('muted', '(Ctrl+O to expand)')}`
         }
-        const usageStr = formatUsageStats(r.usage, r.model)
+        const usageStr = [formatUsageStats(r.usage, r.model), r.thinkingLevel].filter(Boolean).join(' ')
         if (usageStr) text += `\n${theme.fg('dim', usageStr)}`
         return new Text(text, 0, 0)
       }
@@ -1050,7 +1074,7 @@ export default function (pi: ExtensionAPI) {
               container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme))
             }
 
-            const stepUsage = formatUsageStats(r.usage, r.model)
+            const stepUsage = [formatUsageStats(r.usage, r.model), r.thinkingLevel].filter(Boolean).join(' ')
             if (stepUsage) container.addChild(new Text(theme.fg('dim', stepUsage), 0, 0))
           }
 
@@ -1125,7 +1149,7 @@ export default function (pi: ExtensionAPI) {
               container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme))
             }
 
-            const taskUsage = formatUsageStats(r.usage, r.model)
+            const taskUsage = [formatUsageStats(r.usage, r.model), r.thinkingLevel].filter(Boolean).join(' ')
             if (taskUsage) container.addChild(new Text(theme.fg('dim', taskUsage), 0, 0))
           }
 
