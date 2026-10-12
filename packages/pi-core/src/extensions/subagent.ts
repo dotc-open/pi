@@ -43,6 +43,7 @@ export interface AgentConfig {
   description: string
   tools?: string[] | undefined
   model?: string | undefined
+  thinkingLevel?: ThinkingLevel | undefined
   systemPrompt: string
   source: 'user' | 'project'
   filePath: string
@@ -66,6 +67,17 @@ type AgentFrontmatter = {
   description?: unknown
   tools?: unknown
   model?: unknown
+  thinkingLevel?: unknown
+}
+
+const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
+
+function parseThinkingLevel(value: unknown, filePath: string): ThinkingLevel | undefined {
+  if (value === undefined) return undefined
+  if (typeof value === 'string' && THINKING_LEVELS.some((level) => level === value)) {
+    return value as ThinkingLevel
+  }
+  throw new Error(`Invalid thinkingLevel in agent "${filePath}". Expected one of: ${THINKING_LEVELS.join(', ')}.`)
 }
 
 /**
@@ -121,11 +133,14 @@ function loadAgentsFromDir(dir: string, source: 'user' | 'project'): AgentConfig
       continue
     }
 
+    const thinkingLevel = parseThinkingLevel(frontmatter.thinkingLevel, filePath)
+
     agents.push({
       name: frontmatter.name,
       description: frontmatter.description,
       tools: parseToolList(frontmatter.tools),
       model: typeof frontmatter.model === 'string' ? frontmatter.model : undefined,
+      thinkingLevel,
       systemPrompt: body,
       source,
       filePath,
@@ -613,6 +628,12 @@ const SubagentParams = Type.Object({
   task: Type.Optional(Type.String({ description: 'Task to delegate (for single mode)' })),
   tasks: Type.Optional(Type.Array(TaskItem, { description: 'Array of {agent, task} for parallel execution' })),
   chain: Type.Optional(Type.Array(ChainItem, { description: 'Array of {agent, task} for sequential execution' })),
+  thinkingLevel: Type.Optional(
+    StringEnum(THINKING_LEVELS, {
+      description:
+        'Thinking level shared by all dispatched agents: off, minimal, low, medium, high, xhigh, max. Overrides agent definitions; when omitted, use the agent definition or child Pi startup settings, not the parent active level.',
+    }),
+  ),
   agentScope: Type.Optional(AgentScopeSchema),
   confirmProjectAgents: Type.Optional(
     Type.Boolean({ description: 'Prompt before running project-local agents. Default: true.', default: true }),
@@ -627,6 +648,7 @@ export default function (pi: ExtensionAPI) {
     description: [
       'Delegate tasks to specialized subagents with isolated context.',
       'Modes: single (agent + task), parallel (tasks array), chain (sequential with {previous} placeholder).',
+      'Optional top-level thinkingLevel applies to every task: tool value > agent definition > child modelThinkingLevels > defaultThinkingLevel > medium. Pi may clamp levels to model capabilities; the parent active thinking level is not inherited.',
       `Default agent scope is "user" (from ${path.join(getAgentDir(), 'agents')}).`,
       `To enable project-local agents in ${CONFIG_DIR_NAME}/agents, set agentScope: "both" (or "project").`,
     ].join(' '),

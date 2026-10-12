@@ -27,7 +27,7 @@ Allow callers to choose a subagent's thinking level through the `subagent` tool 
 
 After **EACH STEP**, run code quality checks and commit changes, including any changes to this plan file (such as marking steps complete).
 
-- [ ] Add validated agent-definition `thinkingLevel` and optional top-level tool-call `thinkingLevel` (no per-task fields); document values and resolution in help text/examples.
+- [x] Add validated agent-definition `thinkingLevel` and optional top-level tool-call `thinkingLevel` (no per-task fields); document values and resolution in help text/examples.
 - [ ] Route effective thinking into the shared child invocation: tool → agent; otherwise omit the flag for child settings fallback for both inherited and explicit models.
 - [ ] Add focused regression coverage for precedence and single/parallel/chain dispatch; update docs.
 
