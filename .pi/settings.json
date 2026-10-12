@@ -42,6 +42,8 @@
       "git_worktree_add": "allow",
       "shadcn_search": "warn",
       "shadcn_docs": "warn",
+      "chakra_v2_docs": "allow",
+      "chakra_v2_search": "allow",
       "fetch_url": "warn",
       "nest_generate": "warn",
       "subagent": "allow"
@@ -88,6 +90,8 @@
       "shadcn_search": "allow",
       "shadcn_docs": "allow",
       "fetch_url": "allow",
+      "chakra_v2_docs": "allow",
+      "chakra_v2_search": "allow",
       "nest_generate": "block",
       "subagent_task": "block"
     },
