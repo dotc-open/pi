@@ -12,9 +12,8 @@ export default function (pi: ExtensionAPI) {
     name: 'chakra_v2_docs',
     label: 'Get Chakra UI v2 Component Docs',
     description:
-      'Fetch Chakra UI v2 component usage MDX from a pinned chakra-ui v2 branch snapshot with @chakra-ui/react 2.10.10. Supply a component slug such as button or modal. Returns raw prose and examples, not generated prop tables or resolved imports. Missing pages and request failures are errors.',
+      'Fetch usage documentation for one Chakra UI v2 component, such as button or modal, from a pinned v2.10.10 snapshot. To list or discover components, use chakra_v2_search. Returns raw MDX, not generated prop tables or resolved imports. Missing pages and request failures are errors.',
     promptSnippet: 'Get Chakra UI v2 component documentation',
-    promptGuidelines: ['Use chakra_v2_docs for Chakra UI v2 component usage and examples in the frontend.'],
     parameters: Type.Object({
       component: Type.String({
         description: 'Chakra UI v2 component slug, e.g. button or modal.',
