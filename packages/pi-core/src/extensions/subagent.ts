@@ -319,6 +319,7 @@ interface SingleResult {
   stderr: string
   usage: UsageStats
   model?: string | undefined
+  thinkingLevel?: ThinkingLevel | undefined
   stopReason?: string | undefined
   errorMessage?: string | undefined
   step?: number | undefined
@@ -539,7 +540,10 @@ async function runSingleAgent(
               currentResult.usage.cost += usage.cost?.total || 0
               currentResult.usage.contextTokens = usage.totalTokens || 0
             }
-            if (!currentResult.model && msg.model) currentResult.model = msg.model
+            if (currentResult.usage.turns === 1) {
+              if (msg.model) currentResult.model = msg.model
+              if (msg.thinkingLevel !== undefined) currentResult.thinkingLevel = msg.thinkingLevel
+            }
             if (msg.stopReason) currentResult.stopReason = msg.stopReason
             if (msg.errorMessage) currentResult.errorMessage = msg.errorMessage
           }
@@ -993,7 +997,7 @@ export default function (pi: ExtensionAPI) {
               container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme))
             }
           }
-          const usageStr = formatUsageStats(r.usage, r.model)
+          const usageStr = [formatUsageStats(r.usage, r.model), r.thinkingLevel].filter(Boolean).join(' ')
           if (usageStr) {
             container.addChild(new Spacer(1))
             container.addChild(new Text(theme.fg('dim', usageStr), 0, 0))
@@ -1009,7 +1013,7 @@ export default function (pi: ExtensionAPI) {
           text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`
           if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg('muted', '(Ctrl+O to expand)')}`
         }
-        const usageStr = formatUsageStats(r.usage, r.model)
+        const usageStr = [formatUsageStats(r.usage, r.model), r.thinkingLevel].filter(Boolean).join(' ')
         if (usageStr) text += `\n${theme.fg('dim', usageStr)}`
         return new Text(text, 0, 0)
       }
@@ -1070,7 +1074,7 @@ export default function (pi: ExtensionAPI) {
               container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme))
             }
 
-            const stepUsage = formatUsageStats(r.usage, r.model)
+            const stepUsage = [formatUsageStats(r.usage, r.model), r.thinkingLevel].filter(Boolean).join(' ')
             if (stepUsage) container.addChild(new Text(theme.fg('dim', stepUsage), 0, 0))
           }
 
@@ -1145,7 +1149,7 @@ export default function (pi: ExtensionAPI) {
               container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme))
             }
 
-            const taskUsage = formatUsageStats(r.usage, r.model)
+            const taskUsage = [formatUsageStats(r.usage, r.model), r.thinkingLevel].filter(Boolean).join(' ')
             if (taskUsage) container.addChild(new Text(theme.fg('dim', taskUsage), 0, 0))
           }
 

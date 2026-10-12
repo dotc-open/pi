@@ -23,7 +23,7 @@ Existing `SingleResult`, assistant `message_end` parsing, `formatUsageStats`, an
 
 After **EACH STEP**, run code quality checks and commit changes, including updates to this plan.
 
-- [ ] Capture child-reported thinking metadata alongside the summarized model, then append the level separately after the existing usage/model string in all per-agent UI lines without changing `formatUsageStats`.
+- [x] Capture child-reported thinking metadata alongside the summarized model, then append the level separately after the existing usage/model string in all per-agent UI lines without changing `formatUsageStats`.
 - [ ] Run quality checks and prepare manual verification; pause for the user to reload the updated workspace extension, then verify directly in the session. Do not add an automated test harness.
 
 ## Verification
