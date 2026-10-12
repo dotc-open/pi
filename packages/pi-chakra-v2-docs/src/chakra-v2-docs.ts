@@ -3,7 +3,7 @@ import { Type } from 'typebox'
 
 // Verified v2 snapshot: packages/components/package.json is @chakra-ui/react 2.10.10.
 // See README.md for provenance and the revision-update procedure.
-const DOCS_REVISION = 'a1005f7f129f225058e7616c52e580b6cf8dcfdc'
+export const DOCS_REVISION = 'a1005f7f129f225058e7616c52e580b6cf8dcfdc'
 const DOCS_BASE = `https://raw.githubusercontent.com/chakra-ui/chakra-ui/${DOCS_REVISION}/website/content/docs/components`
 const MAX_BODY_CHARS = 100_000
 
