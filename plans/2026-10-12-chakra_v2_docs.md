@@ -102,3 +102,45 @@ Status for step 1: implementation, source inspection, formatting, lint, type che
 3. If the v2 inventory and links are verified, add and register static search in a separate change. Check exact, partial, whitespace-normalized, and `kbd` alias queries; blank input; and no matches. Verify that returned slugs can be resolved by the docs tool, or clearly exclude entries that are not supported. Repeat repository checks and hand off for reload and direct in-session search calls.
 
 The package README should document source provenance, the search ceiling, local loading commands, and rebuild/reload behavior. Older tool migration, broader documentation topics, full-text search, and offline bundling remain outside this initial scope.
+
+## Proposed extension: offline v2 documentation skills (draft)
+
+### Context
+
+The existing component-only, network-dependent tools do not help agents discover broader v2 guidance or follow related pages without repeated fetches. Extend this plan, preserving the implementation history above, to ship a pinned local documentation snapshot as Pi skills. The goal is **useful retrieval**, not merely copying MDX into the package.
+
+### Approach (to refine)
+
+- Start from the verified v2 source revision above. Include all of `website/content/docs`, `website/content/getting-started`, and `website/content/tutorial`; exclude blog, changelog, community, and Figma content. Inventory imports, cross-links, and licensing before snapshotting. Keep `chakra_v2_docs` and `chakra_v2_search` unchanged until skills are verified; any retirement is a separate decision.
+- Expose a small number of **task-oriented skills** with distinct trigger descriptions and compact `SKILL.md` indexes; store the complete source pages as linked references, not as eagerly loaded skill instructions. Preserve page identity, version attribution, and navigable cross-references; keep examples and conceptual guidance together where they are needed.
+- Organize by agent task (getting started/theming, components, patterns, etc. as validated against the actual tree), with short index/lookup guidance so a model can find the right page and read only that page. Avoid one skill per MDX page and avoid loading the whole corpus into context.
+- Retain the existing network tools alongside the skills during this implementation.
+
+The pinned snapshot now contains **231 Git-SHA-verified MDX pages** plus the upstream MIT license: 169 component pages, 19 hooks, 16 styled-system pages, 20 getting-started pages, and seven tutorial pages. The component directory has `usage.mdx`, optional `theming.mdx`, and often `props.mdx`; the hooks and styled-system sections are flat. This dictates navigation by component slug/page type, hook name, styling topic, and framework/integration guide. Several tutorial pages are placeholders (e.g. `interactive-components.mdx`), and `tutorial/basics.mdx` is lorem-ipsum filler; props pages can be `<PropsTable>` stubs, and component theming pages range above 250 KB. Preserve these facts in the index rather than presenting stub or generated content as complete offline guidance. The upstream root license is MIT and requires including its notice with redistributed documentation. Button theming includes imported Sandpack code, and pages contain site-absolute links: an offline copy alone does not resolve either dependency.
+
+### Files to modify (tentative)
+
+- `packages/pi-chakra-v2-docs/package.json` — publish skill resources and snapshot files alongside the existing extension entry point.
+- `packages/pi-chakra-v2-docs/skills/` — task-oriented entry points (new).
+- `packages/pi-chakra-v2-docs/snapshot/` — local pinned MDX references and upstream license (new).
+- `packages/pi-chakra-v2-docs/scripts/download-snapshot.ts` — explicitly loaded, one-time downloader; Git blob SHA verification and atomic snapshot installation, without shell access.
+- `packages/pi-chakra-v2-docs/README.md` and `packages/pi-chakra-v2-docs/docs/` — discovery, source/license attribution, update procedure.
+- `plans/2026-10-12-chakra_v2_docs.md` — track decisions and independently reviewable increments.
+
+### Reuse
+
+- `packages/pi-chakra-v2-docs/docs/provenance.md` and `docs/updating-revision.md` — existing pinned-revision record and refresh instructions.
+- Pi package `pi.skills` support and lazy skill/reference loading; no custom search tool or MDX renderer unless real documentation examples require them.
+
+### Steps (draft)
+
+After **each step**, run applicable quality checks, review the change, and commit it (including any plan progress updates) only after user approval; `.pi/plans/` remains unstaged unless explicitly requested.
+
+- [x] Inventory the pinned v2 docs tree and verify coverage, size, license, imports, links, and task-based navigation. The one-time downloader was directly called after reload and saved 231 MDX pages with verified Git blob SHA plus upstream LICENSE. Source MDX contains absolute site links (including obsolete category URLs), unresolved rendered components (e.g. `<PropsTable>`, `<SandpackEmbed>`, `<PackageManagers>`), and occasional large inline SVGs; skills must warn about these limits and route agents to usable prose/code rather than placeholders.
+- [ ] Define and implement the smallest useful skill taxonomy and offline reference snapshot, with a reproducible refresh method and explicit policy for broken links/imported examples. Keep tutorial placeholders accessible by source path but do not route agents to them as authoritative guidance.
+- [ ] Package the resources, document version/attribution and usage, verify local and published-file inclusion, then pause for a Pi reload and directly exercise discovery and cross-page coding questions.
+
+### Verification (draft)
+
+- Check the snapshot against the pinned source for completeness and detect missing local targets, unresolved site components/imported examples, and unintended current-version content. Explicitly distinguish source stubs and generated props tables from usable prose.
+- Confirm skill discovery after reload, minimal initial context, accurate component and non-component answers from local references, and usable citations/provenance without network access.
