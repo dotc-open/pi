@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
 
-import { DOCS_REVISION } from '../src/chakra-v2-docs.ts'
+// Keep in sync with the revision cited by the bundled skills and provenance.
+const DOCS_REVISION = 'a1005f7f129f225058e7616c52e580b6cf8dcfdc'
 
 const root = fileURLToPath(new URL('../snapshot', import.meta.url))
 const source = 'website/content/'
