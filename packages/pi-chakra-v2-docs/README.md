@@ -1,13 +1,12 @@
 # @dotc/pi-chakra-v2-docs
 
-Chakra UI v2 component documentation and discovery for the [Pi coding agent](https://github.com/badlogic/pi-mono).
+Pinned Chakra UI v2 documentation for the [Pi coding agent](https://github.com/badlogic/pi-mono).
 
 ## Features
 
-- **`chakra_v2_search`**: List available components or filter their names using GitHub's directory API.
-- **`chakra_v2_docs`**: Fetch component usage documentation and examples as raw MDX, with source attribution.
-- Both tools use the same [pinned Chakra UI 2.10.10 snapshot](https://github.com/chakra-ui/chakra-ui/tree/a1005f7f129f225058e7616c52e580b6cf8dcfdc/website/content/docs/components), support cancellation, and require network access. Search is subject to GitHub API rate limits.
-- Docs output is capped at 100,000 characters with a truncation notice to preserve session context.
+- **Offline skills**: `chakra-v2-setup`, `chakra-v2-components`, `chakra-v2-hooks`, and `chakra-v2-styling` guide agents to relevant local documentation on demand—no network or explicit slash command needed.
+- **Optional tools**: `chakra_v2_search` discovers component names; `chakra_v2_docs` fetches component usage MDX. These existing tools still require GitHub access.
+- All resources use the same [Chakra UI 2.10.10 snapshot](https://github.com/chakra-ui/chakra-ui/tree/a1005f7f129f225058e7616c52e580b6cf8dcfdc/website/content). The package includes 231 MDX pages and the upstream MIT license.
 
 ## Installation
 
@@ -15,13 +14,34 @@ Chakra UI v2 component documentation and discovery for the [Pi coding agent](htt
 pi install npm:@dotc/pi-chakra-v2-docs
 ```
 
-Or add `npm:@dotc/pi-chakra-v2-docs` to the `packages` array in `~/.pi/agent/settings.json` or project `.pi/settings.json`.
+## Skills
 
-## Setup
+Ask Pi a Chakra UI **v2** question. Pi sees each skill's name and description and reads its instructions only when the task calls for it; the full documentation corpus is not loaded into every prompt.
 
-### Lockdown (optional)
+| Skill                  | Use for                                                      |
+| ---------------------- | ------------------------------------------------------------ |
+| `chakra-v2-setup`      | Installation, providers, frameworks, migration, integrations |
+| `chakra-v2-components` | Component composition, examples, accessibility, theming      |
+| `chakra-v2-hooks`      | Hooks, state, responsive behavior, custom controls           |
+| `chakra-v2-styling`    | Style props, color mode, tokens, variants, theme overrides   |
 
-If using `@chrischow/pi-lockdown`, merge these permissions into your Pi settings:
+For example, ask “How do I show a loading state on a Chakra UI v2 Button?” or “How do I set up Chakra UI v2 in a Next.js app?” The agent reads the relevant local MDX page and can cite its pinned source. `/skill:chakra-v2-components` is available if you want to force a skill, but is not required.
+
+The bundled pages are raw MDX: generated prop tables and imported Sandpack examples are not rendered. Some tutorial pages are placeholders; the skills prioritize usable guides and examples. See [documentation provenance and limits](docs/provenance.md).
+
+## Tools (optional)
+
+Network-backed tools remain available alongside the offline skills:
+
+| Tool               | Arguments                 | Result                              |
+| ------------------ | ------------------------- | ----------------------------------- |
+| `chakra_v2_search` | `{}`                      | All component names, alphabetically |
+| `chakra_v2_search` | `{"query": "button"}`     | Names containing `button`           |
+| `chakra_v2_docs`   | `{"component": "button"}` | Button usage MDX                    |
+
+Search is case-insensitive and uses GitHub's directory API; blank queries list all components. Pass a returned name to the docs tool. Fetch output is capped at 100,000 characters and marks truncation. Both tools support cancellation and report request errors rather than falling back to current-version docs.
+
+If you use `@chrischow/pi-lockdown`, permit the tools in your Pi settings (the skills themselves do not require these permissions):
 
 ```json
 {
@@ -34,54 +54,10 @@ If using `@chrischow/pi-lockdown`, merge these permissions into your Pi settings
 }
 ```
 
-`warn` asks for approval; `allow` permits requests without prompting. Unlisted custom tools may not be available. No separate `fetch_url` permission is required.
+`warn` prompts for approval; `allow` permits requests without prompting. Merge these keys into your existing settings rather than replacing them. No separate `fetch_url` permission is needed. Run `/reload` after changing settings.
 
-### Subagents (optional)
+To delegate network research to a `subagent`, install this package in the child session too, add both tools to that agent's tool list, and grant its tool permissions if needed. CLI `-e` arguments in the parent are not forwarded to children.
 
-The docs tool encourages delegation when `subagent` and a docs-capable child agent are available; otherwise it supports direct calls. For [`@dotc/pi-core`](../pi-core/README.md):
+## Development
 
-- Install/configure this package for child sessions too; the parent's `-e` arguments are not forwarded.
-- Add `chakra_v2_search` and `chakra_v2_docs` to the existing `tools` list in `.pi/agents/scout.md` or `~/.pi/agent/agents/scout.md`:
-
-  ```yaml
-  tools: read, grep, find, ls, chakra_v2_search, chakra_v2_docs
-  ```
-
-- If using Lockdown, merge the following into settings. Child `allow` permissions authorize unattended GitHub requests; enable them only if acceptable:
-
-  ```json
-  {
-    "lockdown": {
-      "customTools": { "subagent": "warn" }
-    },
-    "lockdownSubagent": {
-      "customTools": {
-        "chakra_v2_docs": "allow",
-        "chakra_v2_search": "allow"
-      }
-    }
-  }
-  ```
-
-Run `/reload` after setup changes. Preserve existing settings and agent tools when merging these examples.
-
-## Usage
-
-Ask Pi to call these tools; they are not slash commands:
-
-| Tool               | Arguments                  | Result                              |
-| ------------------ | -------------------------- | ----------------------------------- |
-| `chakra_v2_search` | `{}`                       | All component names, alphabetically |
-| `chakra_v2_search` | `{"query": "button"}`      | Names containing `button`           |
-| `chakra_v2_search` | `{"query": "Icon Button"}` | `icon-button`                       |
-| `chakra_v2_docs`   | `{"component": "button"}`  | Button usage documentation          |
-
-Search is case-insensitive; omitted or blank queries list all components. Pass a returned name to the docs tool—`all` is not a component name. Request failures are reported as errors.
-
-For delegated research, ask Pi to use `scout` to fetch the docs and return relevant examples and source URLs. If you have this repository's optional prompt template loaded, you can also use:
-
-```text
-/with_subagent Research Chakra UI v2 Button loading states using chakra_v2_docs. Return examples and source URLs.
-```
-
-The template is not bundled with this package.
+For checked-out source loading and package testing, see [local development](docs/local-development.md). For the pinned source, licensing, and refresh procedure, see [provenance](docs/provenance.md) and [updating the revision](docs/updating-revision.md).

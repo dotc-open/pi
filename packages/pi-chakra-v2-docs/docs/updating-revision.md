@@ -63,6 +63,6 @@ Fetch a name returned by search to verify the discovery-to-docs flow. Repeat the
 pi -e ./packages/pi-chakra-v2-docs
 ```
 
-Rebuild before reloading a compiled-package session. Ensure Lockdown permits the tools; if verifying delegation, the child session must also load the package and permit both tools. See [README setup](../README.md#setup).
+Rebuild before reloading a compiled-package session. Ensure Lockdown permits the tools; if verifying delegation, the child session must also load the package and permit both tools. See [optional tool permissions](../README.md#tools-optional).
 
 Record actual verification results before review or publication. A successful build or source fetch alone does not verify tool execution; these smoke checks do not cover HTTP/network failures, cancellation, or truncation.
