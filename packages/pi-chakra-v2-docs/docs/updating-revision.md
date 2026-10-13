@@ -19,6 +19,15 @@ If any check fails, stop and investigate rather than changing versions or source
 - If the verified v2 package version changed, update the docs tool's description and returned snapshot header.
 - Update the README's snapshot link/version and [provenance](provenance.md), including version evidence, component tree link, representative page links, sizes, and limitations.
 
+### Refresh the offline snapshot
+
+The packaged skills use `snapshot/`, captured from the **same** `DOCS_REVISION`. With the verified revision selected above:
+
+1. Move the existing `snapshot/` out of the way (keep it as a backup until verification finishes). The one-time downloader intentionally refuses to overwrite an existing snapshot.
+2. From the repository root, load `pi -e ./packages/pi-chakra-v2-docs/scripts/download-snapshot.ts` together with your usual extension configuration; restart or reload Pi to register `chakra_v2_download_snapshot`.
+3. Call `chakra_v2_download_snapshot` once. It fetches the docs, getting-started, and tutorial MDX from the pinned revision; compares each file and the MIT license to its Git blob SHA; and atomically installs `snapshot/` only after all downloads succeed. On failure, resolve the issue and retry (the prior backup remains untouched).
+4. Inspect the new content and update skill indexes, version labels, README, and provenance when the source structure or APIs change. Verify local skill paths and package inclusion before removing the backup. Keep this maintenance tool out of the package's `pi.extensions` list: it must not run in ordinary user sessions.
+
 ## 3. Check and reload
 
 From the repository root:

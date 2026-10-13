@@ -137,7 +137,7 @@ The pinned snapshot now contains **231 Git-SHA-verified MDX pages** plus the ups
 After **each step**, run applicable quality checks, review the change, and commit it (including any plan progress updates) only after user approval; `.pi/plans/` remains unstaged unless explicitly requested.
 
 - [x] Inventory the pinned v2 docs tree and verify coverage, size, license, imports, links, and task-based navigation. The one-time downloader was directly called after reload and saved 231 MDX pages with verified Git blob SHA plus upstream LICENSE. Source MDX contains absolute site links (including obsolete category URLs), unresolved rendered components (e.g. `<PropsTable>`, `<SandpackEmbed>`, `<PackageManagers>`), and occasional large inline SVGs; skills must warn about these limits and route agents to usable prose/code rather than placeholders.
-- [ ] Define and implement the smallest useful skill taxonomy and offline reference snapshot, with a reproducible refresh method and explicit policy for broken links/imported examples. Keep tutorial placeholders accessible by source path but do not route agents to them as authoritative guidance.
+- [x] Define and implement four on-demand skills (components, styling, hooks, setup) over the shared verified snapshot. Document the explicit maintenance-tool refresh procedure and rules for obsolete site links, generated props tables, imported examples, SVG-heavy pages, and tutorial placeholders; do not route agents to tutorial filler as authoritative guidance.
 - [ ] Package the resources, document version/attribution and usage, verify local and published-file inclusion, then pause for a Pi reload and directly exercise discovery and cross-page coding questions.
 
 ### Verification (draft)
