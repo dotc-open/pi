@@ -11,7 +11,7 @@
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit && tsc -p scripts/tsconfig.json",
     "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "pnpm build"
   },
