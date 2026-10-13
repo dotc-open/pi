@@ -5,7 +5,7 @@ description: Implement or customize Chakra UI v2 React components. Use for v2 co
 
 # Chakra UI v2 components
 
-Source: `chakra-ui/chakra-ui` revision `a1005f7f129f225058e7616c52e580b6cf8dcfdc` (`@chakra-ui/react` 2.10.10). Resolve paths below relative to this SKILL.md. The snapshot is offline; cite the original page at `https://github.com/chakra-ui/chakra-ui/blob/a1005f7f129f225058e7616c52e580b6cf8dcfdc/website/content/` followed by its snapshot-relative path.
+Source: `chakra-ui/chakra-ui` revision `a1005f7f129f225058e7616c52e580b6cf8dcfdc` (`@chakra-ui/react` 2.10.10). Resolve paths below relative to this SKILL.md (not the project cwd); pass the resulting absolute path to file tools. The snapshot is offline; cite the original page at `https://github.com/chakra-ui/chakra-ui/blob/a1005f7f129f225058e7616c52e580b6cf8dcfdc/website/content/` followed by its snapshot-relative path.
 
 Find the component slug with `find ../../snapshot/docs/components -name usage.mdx`; use the directory name, not the site's historical category in the link. Read `../../snapshot/docs/components/<slug>/usage.mdx` first. If customizing its appearance, read adjacent `theming.mdx` when present, then use the `chakra-v2-styling` skill for shared theme concepts. `props.mdx` is often only a `<PropsTable>` placeholder; never infer a complete prop API from it. Prefer the usage examples and, if exact generated types are essential, check the installed v2 library declarations.
 
