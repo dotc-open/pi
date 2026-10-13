@@ -5,7 +5,7 @@ description: Style and theme Chakra UI v2 React apps. Use for v2 style props, re
 
 # Chakra UI v2 styling and theming
 
-Pinned offline source: `@chakra-ui/react` 2.10.10, `chakra-ui/chakra-ui` revision `a1005f7f129f225058e7616c52e580b6cf8dcfdc`. Resolve paths relative to this SKILL.md. Start with the page matching the task, then follow related local pages; do not load the entire snapshot. In each list, bare filenames share the directory of its first full path.
+Pinned offline source: `@chakra-ui/react` 2.10.10, `chakra-ui/chakra-ui` revision `a1005f7f129f225058e7616c52e580b6cf8dcfdc`. Resolve paths relative to this SKILL.md, not the project cwd; pass absolute paths to file tools. Start with the page matching the task, then follow related local pages; do not load the entire snapshot. In each list, bare filenames share the directory of its first full path.
 
 - Theme tokens and defaults: `../../snapshot/docs/styled-system/theme.mdx`, `customize-theme.mdx`, `semantic-tokens.mdx`.
 - Component variants and multipart anatomy: `../../snapshot/docs/styled-system/component-style.mdx`, `advanced-theming.mdx`; for a named component also read `../../snapshot/docs/components/<slug>/theming.mdx` if present.

@@ -5,7 +5,7 @@ description: Set up or integrate Chakra UI v2 in a React app. Use for v2 install
 
 # Chakra UI v2 setup and integrations
 
-Use the pinned local `@chakra-ui/react` 2.10.10 snapshot (revision `a1005f7f129f225058e7616c52e580b6cf8dcfdc`). Resolve paths below relative to this SKILL.md and read only the relevant page. Bare filenames in each list share the directory of its first full path.
+Use the pinned local `@chakra-ui/react` 2.10.10 snapshot (revision `a1005f7f129f225058e7616c52e580b6cf8dcfdc`). Resolve paths below relative to this SKILL.md, not the project cwd; pass absolute paths to file tools and read only the relevant page. Bare filenames in each list share the directory of its first full path.
 
 - Installation and `ChakraProvider`: `../../snapshot/getting-started/index.mdx` (the `<PackageManagers>` widget contains versioned install commands in its source).
 - Frameworks: `../../snapshot/getting-started/nextjs-app-guide.mdx`, `nextjs-pages-guide.mdx`, `vite-guide.mdx`, `remix-guide.mdx`, `gatsby-guide.mdx`, `cra-guide.mdx`; discover the remaining framework guides with `find ../../snapshot/getting-started -name '*guide.mdx'`.
