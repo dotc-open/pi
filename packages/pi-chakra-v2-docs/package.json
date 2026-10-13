@@ -16,11 +16,17 @@
     "prepublishOnly": "pnpm build"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills",
+    "snapshot",
+    "docs"
   ],
   "pi": {
     "extensions": [
       "dist/index.js"
+    ],
+    "skills": [
+      "./skills"
     ]
   },
   "devDependencies": {
