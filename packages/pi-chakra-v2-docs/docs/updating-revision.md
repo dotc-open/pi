@@ -7,16 +7,14 @@ Update the source deliberately. Do not replace the immutable pin with `v2`, `mai
 Select a full commit SHA from `chakra-ui/chakra-ui`'s `v2` branch. At that exact revision:
 
 - Check `website/package.json` uses the workspace's `@chakra-ui/react`, and verify its version in `packages/components/package.json` is **2.x**.
-- Confirm the component directory API still returns a listing and each component directory has a `usage.mdx` file. A recursive Git tree can verify the paths without one request per component; check that the tree response is not truncated.
+- Confirm the component directory and bundled skill paths match the new snapshot. A recursive Git tree can verify the paths; check that the tree response is not truncated.
 - Inspect Button, Modal, and any changed pages for v2 APIs, usable inline examples, imports, and custom MDX components that could hide required content.
-- Measure representative page sizes and confirm the retained 100,000-character output cap is appropriate. Bytes and JavaScript string characters are different measurements.
 
 If any check fails, stop and investigate rather than changing versions or source formats implicitly.
 
 ## 2. Update the package
 
-- Change `DOCS_REVISION` in `src/chakra-v2-docs.ts`. Search imports this constant and follows the new pin automatically; there is no component list to maintain.
-- If the verified v2 package version changed, update the docs tool's description and returned snapshot header.
+- Change `DOCS_REVISION` in `scripts/download-snapshot.ts` and update the revision cited by all three skills.
 - Update the README's snapshot link/version and [provenance](provenance.md), including version evidence, component tree link, representative page links, sizes, and limitations.
 
 ### Refresh the offline snapshot
@@ -42,27 +40,9 @@ pnpm format
 Load the source:
 
 ```bash
-pi -e ./packages/pi-chakra-v2-docs/src/index.ts
+pi --skill ./packages/pi-chakra-v2-docs/skills/chakra-v2-components \
+  --skill ./packages/pi-chakra-v2-docs/skills/chakra-v2-hooks \
+  --skill ./packages/pi-chakra-v2-docs/skills/chakra-v2-styling
 ```
 
-Ask Pi to exercise:
-
-| Tool               | Arguments                                              | Expected result                                          |
-| ------------------ | ------------------------------------------------------ | -------------------------------------------------------- |
-| `chakra_v2_search` | `{}`                                                   | Component directory names at the new revision            |
-| `chakra_v2_search` | `{"query": "button"}`                                  | Matching names                                           |
-| `chakra_v2_search` | `{"query": " Icon   Button "}`                         | `icon-button`                                            |
-| `chakra_v2_search` | `{"query": "nonexistent-component"}`                   | No-results message                                       |
-| `chakra_v2_docs`   | `{"component": "button"}` and `{"component": "modal"}` | Usable MDX with the new source URL and revision metadata |
-| `chakra_v2_docs`   | `{"component": "../button"}`                           | Validation failure                                       |
-| `chakra_v2_docs`   | `{"component": "nonexistent-component"}`               | Missing-page error                                       |
-
-Fetch a name returned by search to verify the discovery-to-docs flow. Repeat the smoke check with the compiled package:
-
-```bash
-pi -e ./packages/pi-chakra-v2-docs
-```
-
-Rebuild before reloading a compiled-package session. Ensure Lockdown permits the tools; if verifying delegation, the child session must also load the package and permit both tools. See [optional tool permissions](../README.md#tools-optional).
-
-Record actual verification results before review or publication. A successful build or source fetch alone does not verify tool execution; these smoke checks do not cover HTTP/network failures, cancellation, or truncation.
+Ask Pi to find and read the local Button and Modal usage pages, then repeat with the installed package. Check that all three skills cite the updated revision and that the snapshot is included in the published package.

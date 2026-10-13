@@ -5,5 +5,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["./*.ts", "../src/chakra-v2-docs.ts"]
+  "include": ["./*.ts"]
 }
