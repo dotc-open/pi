@@ -1,10 +1,9 @@
 # Local development
 
-From the repository root, load the checked-out extension and all four skills without installing the package:
+From the repository root, load the checked-out extension and all three skills without installing the package:
 
 ```bash
 pi --continue -e ./packages/pi-chakra-v2-docs/src/index.ts \
-  --skill ./packages/pi-chakra-v2-docs/skills/chakra-v2-setup \
   --skill ./packages/pi-chakra-v2-docs/skills/chakra-v2-components \
   --skill ./packages/pi-chakra-v2-docs/skills/chakra-v2-hooks \
   --skill ./packages/pi-chakra-v2-docs/skills/chakra-v2-styling
@@ -17,4 +16,4 @@ pnpm --filter @dotc/pi-chakra-v2-docs build
 pi --continue -e ./packages/pi-chakra-v2-docs
 ```
 
-Reload Pi after editing skills; rebuild before reloading compiled extensions. Check which files will ship with `npm pack --dry-run --json` from `packages/pi-chakra-v2-docs`; ensure all four `SKILL.md` files and the 231 MDX pages are listed. For snapshot refreshes, see [updating the revision](updating-revision.md).
+Reload Pi after editing skills; rebuild before reloading compiled extensions. Check which files will ship with `npm pack --dry-run --json` from `packages/pi-chakra-v2-docs`; ensure all three `SKILL.md` files and the 231 MDX pages are listed. For snapshot refreshes, see [updating the revision](updating-revision.md).

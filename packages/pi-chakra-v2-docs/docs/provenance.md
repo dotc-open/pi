@@ -27,7 +27,7 @@ Search has no maintained inventory. Usage paths were checked against the [pinned
 
 ## Offline snapshot
 
-`snapshot/` contains 231 MDX files from `website/content/docs` (169 component pages, 19 hook pages, 16 styled-system pages), `website/content/getting-started` (20), and `website/content/tutorial` (7). The one-time `scripts/download-snapshot.ts` tool verified every file and the root `LICENSE` against the pinned Git blob SHA before installing the snapshot. The MIT notice is included as `snapshot/LICENSE`. The published package includes `snapshot/` and the four skill entry points; only the entry points are advertised to Pi at startup.
+`snapshot/` contains 231 MDX files from `website/content/docs` (169 component pages, 19 hook pages, 16 styled-system pages), `website/content/getting-started` (20), and `website/content/tutorial` (7). The one-time `scripts/download-snapshot.ts` tool verified every file and the root `LICENSE` against the pinned Git blob SHA before installing the snapshot. The MIT notice is included as `snapshot/LICENSE`. The published package includes `snapshot/` and the three skill entry points; only the entry points are advertised to Pi at startup.
 
 The local copy is raw MDX, not rendered HTML. Component `props.mdx` pages often hold only generated `<PropsTable>` tags; some theming pages contain very large inline SVGs or imported Sandpack examples. Several tutorial pages are placeholders or filler. Historical category URLs (e.g. `/docs/components/overlay/modal`) do not map directly to source directories (`docs/components/modal/usage.mdx`). Skill instructions direct agents to source files and warn about these limitations.
 
