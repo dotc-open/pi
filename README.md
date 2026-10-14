@@ -21,7 +21,11 @@ Bump the version:
 pnpm --filter @dotc/<package_name> version <major|minor|patch>
 ```
 
+Commit with `chore: bump <package_name> to <semVer>`. For example, `chore: bump pi-core to 0.3.0`.
+
 ### 2. Merge MR and add release tag
+
+Open an MR with the title `chore(release): <package_name>@<semVer>`. For example, `chore(release): pi-core@0.3.0`.
 
 Once approved, merge to `develop`. After merging, **pull `develop`** and add a tag to the merge commit:
 
@@ -29,7 +33,7 @@ Once approved, merge to `develop`. After merging, **pull `develop`** and add a t
 git tag -a "<package_name>@<version>" -m "<package_name>@<version>"
 ```
 
-Example: `git tag -a "pi-platform-ai-provider@0.1.0" -m "pi-platform-ai-provider@0.1.0"`
+Example: `git tag -a "pi-core@0.3.0" -m "pi-core@0.3.0"`
 
 Push tags to remote:
 
@@ -45,7 +49,7 @@ git push --tags
 4. Click **Generate release notes**
 5. Click **Publish**
 
-CI will run code quality checks and publish to npm. Check the **Actions** tab and verify that CI passes.
+CI will run code quality checks and stage the package on npm. Check the **Actions** tab and verify that CI passes.
 
 ### 4. Approve package
 
