@@ -9,6 +9,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/org/dotc
     steps:
       - id: extract_pkg_name
         env:
