@@ -13,7 +13,7 @@ A repository for DOTC's Pi packages.
 
 ### 1. Create release branch
 
-Create a release branch with the name `chore(release): <package_name>@<semVer>`. For example, `chore(release): pi-core@0.3.0`.
+Create a release branch with the name `release/<package_name>/<semVer>`. For example, `release/pi-core/0.3.0`.
 
 Bump the version:
 
