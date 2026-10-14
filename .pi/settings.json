@@ -16,9 +16,9 @@
     "platform-ai/azure.claude-opus-5-5": "medium",
     "platform-ai/bedrock.claude-opus-5-5": "medium",
     "platform-ai/vertex_ai.claude-opus-5-5": "medium",
-    "platform-ai/gpt-6-luna": "medium",
-    "platform-ai/gpt-6-sol": "medium",
-    "platform-ai/gpt-6.1-sol": "medium"
+    "platform-ai/bedrock.gpt-6-luna": "medium",
+    "platform-ai/bedrock.gpt-6-sol": "medium",
+    "platform-ai/bedrock.gpt-6.1-sol": "medium"
   },
   "runNpmScript": {
     "packageManager": "pnpm",
