@@ -9,9 +9,10 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
 
-// Per-section size guard: if a section's raw output exceeds this many lines,
-// emit affected filenames plus a "too many lines" remark instead of the diff.
+// Bound every model-facing section, including filename lists and git errors.
+// Three sections plus separators fit under 50,000 characters in total.
 const MAX_SECTION_LINES = 2000
+const MAX_SECTION_CHARS = 16_000
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
@@ -21,8 +22,8 @@ export default function (pi: ExtensionAPI) {
       'Read the line-by-line staged, unstaged, and untracked git changes. Returns a single text blob with ' +
       '=== STAGED ===, === UNSTAGED ===, and === UNTRACKED === sections: staged and unstaged show unified diffs ' +
       '(git diff --staged / git diff), untracked lists file paths only. Empty sections say so. Sections larger ' +
-      'than 2000 lines are replaced with the affected filenames plus a remark to run the underlying git command ' +
-      'for the full diff.',
+      'than 2000 lines or 16000 characters are summarized by affected filenames. Every section, including ' +
+      'untracked paths, is capped at 16000 characters with a command for retrieving truncated output.',
     promptSnippet: 'Read staged, unstaged, and untracked git changes',
     promptGuidelines: [
       'Use git_changes to review everything in the working tree that differs from HEAD in one call: ' +
@@ -41,8 +42,15 @@ export default function (pi: ExtensionAPI) {
         }
       }
 
-      // Render one === TITLE === section from a git diff result. Oversized diffs
-      // (> MAX_SECTION_LINES) are replaced with affected filenames plus a remark.
+      const limitSection = (header: string, body: string, command: string): string => {
+        const section = `${header}\n${body}`
+        if (section.length <= MAX_SECTION_CHARS) return section
+
+        const notice = `\n[Output truncated at ${MAX_SECTION_CHARS} characters — run ${command} for the full output]`
+        return `${section.slice(0, MAX_SECTION_CHARS - notice.length)}${notice}`
+      }
+
+      // Oversized diffs are replaced with affected filenames plus a remark.
       const diffSection = async (
         title: string,
         res: { code: number; stdout: string; stderr: string },
@@ -51,14 +59,14 @@ export default function (pi: ExtensionAPI) {
       ): Promise<string> => {
         const header = `=== ${title} ===`
         if (res.code !== 0) {
-          return `${header}\n${res.stderr.trim() || `${fullCommand} failed (exit ${res.code}).`}`
+          return limitSection(header, res.stderr.trim() || `${fullCommand} failed (exit ${res.code}).`, fullCommand)
         }
         const diff = res.stdout.trim()
         if (!diff) {
-          return `${header}\nNo ${title.toLowerCase()} changes.`
+          return limitSection(header, `No ${title.toLowerCase()} changes.`, fullCommand)
         }
         const lineCount = diff.split('\n').length
-        if (lineCount > MAX_SECTION_LINES) {
+        if (lineCount > MAX_SECTION_LINES || `${header}\n${diff}`.length > MAX_SECTION_CHARS) {
           const names = await run(nameOnlyArgs)
           const nameList =
             names.code === 0
@@ -68,13 +76,17 @@ export default function (pi: ExtensionAPI) {
                   .filter((line) => line.length > 0)
                   .join('\n')
               : `(could not list filenames: ${names.stderr.trim()})`
-          return [
+          const reason =
+            lineCount > MAX_SECTION_LINES
+              ? `${lineCount} lines exceeds the ${MAX_SECTION_LINES}-line limit`
+              : `diff exceeds the ${MAX_SECTION_CHARS}-character limit`
+          return limitSection(
             header,
-            `[Section omitted: ${lineCount} lines exceeds the 2000-line limit; filenames only — run ${fullCommand} for the full diff]`,
-            nameList,
-          ].join('\n')
+            `[Section omitted: ${reason}; filenames only — run ${fullCommand} for the full diff]\n${nameList}`,
+            fullCommand,
+          )
         }
-        return `${header}\n${diff}`
+        return limitSection(header, diff, fullCommand)
       }
 
       const parts: string[] = []
@@ -97,28 +109,33 @@ export default function (pi: ExtensionAPI) {
       )
 
       // UNTRACKED: paths only, never contents.
+      const untrackedCommand = 'git ls-files --others --exclude-standard'
       const untracked = await run(['ls-files', '--others', '--exclude-standard'])
       if (untracked.code !== 0) {
         parts.push(
-          `=== UNTRACKED ===\n${untracked.stderr.trim() || `git ls-files --others --exclude-standard failed (exit ${untracked.code}).`}`,
+          limitSection(
+            '=== UNTRACKED ===',
+            untracked.stderr.trim() || `${untrackedCommand} failed (exit ${untracked.code}).`,
+            untrackedCommand,
+          ),
         )
       } else {
         const paths = untracked.stdout.trim()
         if (!paths) {
-          parts.push('=== UNTRACKED ===\nNo untracked files.')
+          parts.push(limitSection('=== UNTRACKED ===', 'No untracked files.', untrackedCommand))
         } else {
-          const pathLineCount = paths.split('\n').length
-          if (pathLineCount > MAX_SECTION_LINES) {
-            parts.push(
-              [
-                '=== UNTRACKED ===',
-                `[Section omitted: ${pathLineCount} lines exceeds the 2000-line limit — run git ls-files --others --exclude-standard for the full list]`,
-                paths,
-              ].join('\n'),
-            )
-          } else {
-            parts.push(`=== UNTRACKED ===\n${paths}`)
-          }
+          const pathLines = paths.split('\n')
+          const notice =
+            pathLines.length > MAX_SECTION_LINES
+              ? `[Showing first ${MAX_SECTION_LINES} of ${pathLines.length} lines — run ${untrackedCommand} for the full list]\n`
+              : ''
+          parts.push(
+            limitSection(
+              '=== UNTRACKED ===',
+              `${notice}${pathLines.slice(0, MAX_SECTION_LINES).join('\n')}`,
+              untrackedCommand,
+            ),
+          )
         }
       }
 
