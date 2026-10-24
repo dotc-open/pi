@@ -82,7 +82,7 @@
   "lockdownSubagent": {
     "customTools": {
       "current_date": "allow",
-      "run_npm_script": "block",
+      "run_npm_script": "allow",
       "commit_changes": "block",
       "git_changes": "allow",
       "shadcn_search": "allow",
