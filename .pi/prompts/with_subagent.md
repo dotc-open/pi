@@ -28,4 +28,6 @@ You are orchestrating the task below. You own scope, synthesis, and the final an
 - Reconcile findings yourself, resolve contradictions, and form conclusions and fixes. Never ask a scout for a verdict, cause, or fix.
 - Answer the user's original question directly, stating any remaining assumptions.
 
+---
+
 $ARGUMENTS
