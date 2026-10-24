@@ -89,7 +89,7 @@
       "shadcn_docs": "allow",
       "fetch_url": "allow",
       "nest_generate": "block",
-      "subagent_task": "block"
+      "subagent": "block"
     },
     "defaultTools": ["read", "grep", "find", "ls"],
     "protectedPatterns": ["**/.env*", "**/.git/**"],
