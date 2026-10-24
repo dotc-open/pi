@@ -22,7 +22,7 @@ Reuse `discoverAgents(ctx.cwd, 'project')` in `packages/pi-core/src/extensions/s
 After **each step**, run code quality checks through the `code-quality-checker` subagent and commit the changes, including updates to this plan file.
 
 - [x] Add a `before_agent_start` handler that calls `discoverAgents(ctx.cwd, 'project')` and renders agent names, descriptions, and explicit tool lists in `sections.subagents`; label missing tool lists as child-configured defaults, and delete the section if there are no project agents.
-- [ ] Verify the prompt renders a single `Subagents` section for multiple agents, matches project-only discovery from nested directories, reflects changes between runs, excludes user-only agents, and distinguishes configured tools from child defaults.
+- [x] Verify the prompt renders a single `Subagents` section for multiple agents, matches project-only discovery from nested directories, reflects changes between runs, excludes user-only agents, and distinguishes configured tools from child defaults.
 
 ## Verification
 
