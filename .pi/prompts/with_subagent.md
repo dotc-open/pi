@@ -8,8 +8,9 @@ You are orchestrating the task below. You own scope, synthesis, and the final an
 ## What to delegate
 
 - Delegate breadth: locating code across areas, searching multiple places, or pulling facts from several independent sources.
-- Do NOT delegate reading a single named file (e.g. "read ./Dockerfile.lambda"). Read that yourself. Delegate only if it opens a wider investigation.
-- `scout` reads local repo files only and has NO network access. Never ask it for web research, external documentation, or source URLs. Do that yourself with `fetch_url`.
+- If you intend to inspect two or more repo files to establish facts for the same investigation, delegate that investigation to `scout`
+- Do NOT delegate reading a single named file (e.g. "read ./Dockerfile.lambda") if it is a series of reads. Read that yourself. Delegate only if it opens a wider investigation.
+- `scout` reads local repo files or Pi documentation only and has NO network access. Never ask it for web research, external documentation, or source URLs. Do that yourself with `fetch_url`.
 
 ## How to partition parallel tasks
 
