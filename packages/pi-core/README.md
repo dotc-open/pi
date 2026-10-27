@@ -189,10 +189,11 @@ Fetches contents from external HTTP and HTTPS URLs.
 
 - **Parameters**:
   - `url` (`string`, required): The URL to retrieve.
+  - `maxChars` (`integer`, optional): Maximum characters to return, from 1 to 500,000; defaults to 100,000.
 - **Behavior**:
   - Supports cancellation via tool abort signal.
   - Automatically throws for non-2xx HTTP responses.
-  - Caps response text at 100,000 characters with an explicit truncation notice in the returned output.
+  - Truncates response text at `maxChars` with an explicit notice in the returned output.
   - Returns metadata in `details` (`status`, `contentType`, `charCount`, `truncated`).
 
 ---
