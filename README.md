@@ -11,7 +11,9 @@ A repository for DOTC's Pi packages.
 
 ## Release Steps
 
-### 1. Create release branch
+If releasing an initial version, skip straight to step 3.
+
+### 1. Create release branch and bump version
 
 Create a release branch with the name `release/<package_name>/<semVer>`. For example, `release/pi-core/0.3.0`.
 
@@ -27,7 +29,11 @@ Commit with `chore: bump <package_name> to <semVer>`. For example, `chore: bump 
 
 Open an MR with the title `chore(release): <package_name>@<semVer>`. For example, `chore(release): pi-core@0.3.0`.
 
-Once approved, merge to `develop`. After merging, **pull `develop`** and add a tag to the merge commit:
+Once approved, merge to `develop`.
+
+## 3. Add a release tag
+
+**Pull `develop`** and add a tag to the commit:
 
 ```bash
 git tag -a "<package_name>@<version>" -m "<package_name>@<version>"
@@ -41,7 +47,7 @@ Push tags to remote:
 git push --tags
 ```
 
-### 3. Create release via UI
+### 4. Create release via UI
 
 1. Click on **Releases**
 2. Click **Draft a new release**
