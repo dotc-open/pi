@@ -644,6 +644,22 @@ const SubagentParams = Type.Object({
 })
 
 export default function (pi: ExtensionAPI) {
+  pi.on('before_agent_start', (event, ctx) => {
+    const { agents } = discoverAgents(ctx.cwd, 'project')
+    if (agents.length === 0) {
+      delete event.systemPromptOptions.sections.subagents
+      return
+    }
+
+    event.systemPromptOptions.sections.subagents = [
+      '## Subagents',
+      ...agents.map(
+        (agent) =>
+          `- **${agent.name}**: ${agent.description}\n  Tools: ${agent.tools ? agent.tools.join(', ') : 'child-configured defaults (Pi defaults to read, bash, edit, write; settings or extensions may change these)'}`,
+      ),
+    ].join('\n')
+  })
+
   pi.registerTool({
     name: 'subagent',
     label: 'Subagent',

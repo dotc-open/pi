@@ -82,14 +82,14 @@
   "lockdownSubagent": {
     "customTools": {
       "current_date": "allow",
-      "run_npm_script": "block",
+      "run_npm_script": "allow",
       "commit_changes": "block",
       "git_changes": "allow",
       "shadcn_search": "allow",
       "shadcn_docs": "allow",
       "fetch_url": "allow",
       "nest_generate": "block",
-      "subagent_task": "block"
+      "subagent": "block"
     },
     "defaultTools": ["read", "grep", "find", "ls"],
     "protectedPatterns": ["**/.env*", "**/.git/**"],
