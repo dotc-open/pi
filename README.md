@@ -30,11 +30,11 @@ Commit with `chore: bump <package_name> to <semVer>`. For example, `chore: bump 
 
 Open an MR with the title `chore(release): <package_name>@<semVer>`. For example, `chore(release): pi-core@0.3.0`.
 
-Once approved, merge to `develop`.
+Once approved, merge to `develop` **with a Merge Commit**.
 
 ## 3. Add a release tag
 
-**Pull `develop`** and add a tag to the commit:
+**Pull `develop`** and add a tag to the merge commit:
 
 ```bash
 git tag -a "<package_name>@<version>" -m "<package_name>@<version>"
