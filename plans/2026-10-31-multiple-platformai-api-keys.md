@@ -48,18 +48,18 @@ Key facts relied on (from the installed Pi runtime):
 
 After **each step**, run `lint:fix`, `format:fix`, and `check-types` through the `code-quality-checker` subagent. Then verify the change, stage only that step's files, review the staged diff, propose a one-line Conventional Commit message, and ask for approval before committing. Include plan-file progress in the commit only if deliberately tracking it; never stage `plans/` by default.
 
-1. **Add `src/keys.ts` + tests.** Implement:
-   - `discoverKeyVars(env)`: `PLATFORM_AI_API_KEY` → `default`; each non-empty `PLATFORM_AI_API_KEY_<SUFFIX>` → `suffix.toLowerCase().replaceAll('_', '-')`; ignore empty suffixes, empty values, and any suffix normalising to `default`; return `Map<name, envVarName>`.
-   - `parseKeyName(settingsText)`: pure JSON parse, return `platformAiApiKey` only when it is a non-empty string; return `undefined` on malformed JSON / non-object / non-string.
-   - `readKeyNameFromSettings(filePath)` and `getAgentDir(env)`: thin `node:fs` wrappers that swallow read errors.
-   - `resolveStartingKeyName(cwd, env)`: `<cwd>/.pi/settings.json`, then `<agentDir>/settings.json`, else `default`.
-   - `resolveActiveKey(name, vars)`: `{ name, envVar?, fellBack }`, falling back to `default` when `name` is absent.
+- [x] 1. **Add `src/keys.ts` + tests.** Implement:
+  - `discoverKeyVars(env)`: `PLATFORM_AI_API_KEY` → `default`; each non-empty `PLATFORM_AI_API_KEY_<SUFFIX>` → `suffix.toLowerCase().replaceAll('_', '-')`; ignore empty suffixes, empty values, and any suffix normalising to `default`; return `Map<name, envVarName>`.
+  - `parseKeyName(settingsText)`: pure JSON parse, return `platformAiApiKey` only when it is a non-empty string; return `undefined` on malformed JSON / non-object / non-string.
+  - `readKeyNameFromSettings(filePath)` and `getAgentDir(env)`: thin `node:fs` wrappers that swallow read errors.
+  - `resolveStartingKeyName(cwd, env)`: `<cwd>/.pi/settings.json`, then `<agentDir>/settings.json`, else `default`.
+  - `resolveActiveKey(name, vars)`: `{ name, envVar?, fellBack }`, falling back to `default` when `name` is absent.
 
-   Add `src/keys.test.ts` covering the cases listed under Verification, add `"test": "vitest run"` to `package.json`, add `vitest` to its devDependencies, and add a `test` task to `turbo.json` plus a root `"test": "turbo test"` script. `tsconfig.build.json` already excludes `src/**/*.test.ts` from the build.
+  Add `src/keys.test.ts` covering the cases listed under Verification, add `"test": "vitest run"` to `package.json`, add `vitest` to its devDependencies, and add a `test` task to `turbo.json` plus a root `"test": "turbo test"` script. `tsconfig.build.json` already excludes `src/**/*.test.ts` from the build.
 
-2. **Wire runtime key resolution.** In `src/index.ts`: add module scope `activePlatformAiApiKey`; on `session_start`, compute `discoverKeyVars(process.env)` and `resolveStartingKeyName(ctx.cwd, process.env)`, store the resolved name, notify a warning when it fell back, and notify the active name when `ctx.mode === 'tui'`. In `before_provider_headers` (keeping the provider guard and session-id header), resolve the active name against the current environment and set `Authorization: Bearer <key>` when a value exists. Keep `apiKey: '$PLATFORM_AI_API_KEY'` as the fallback registration so non-injected paths and auth status are unchanged.
-3. **Add the two commands.** `/platform-ai-api-key`: with an argument, resolve and switch to it (notice on fallback); otherwise, when `ctx.hasUI`, `ctx.ui.select` over the discovered names with the active name in the title and switch on selection; in non-UI modes, notify that a name argument is required. If no names are discovered, notify an error. `/which-platform-ai-api-key`: notify the active name (defaulting to `default`).
-4. **Update `README.md`.** Document the `PLATFORM_AI_API_KEY` / `PLATFORM_AI_API_KEY_<NAME>` convention with an example, the `platformAiApiKey` setting precedence, both commands and the argument form, the missing-key fallback, and that only names (not values) are ever shown.
+- [ ] 2. **Wire runtime key resolution.** In `src/index.ts`: add module scope `activePlatformAiApiKey`; on `session_start`, compute `discoverKeyVars(process.env)` and `resolveStartingKeyName(ctx.cwd, process.env)`, store the resolved name, notify a warning when it fell back, and notify the active name when `ctx.mode === 'tui'`. In `before_provider_headers` (keeping the provider guard and session-id header), resolve the active name against the current environment and set `Authorization: Bearer <key>` when a value exists. Keep `apiKey: '$PLATFORM_AI_API_KEY'` as the fallback registration so non-injected paths and auth status are unchanged.
+- [ ] 3. **Add the two commands.** `/platform-ai-api-key`: with an argument, resolve and switch to it (notice on fallback); otherwise, when `ctx.hasUI`, `ctx.ui.select` over the discovered names with the active name in the title and switch on selection; in non-UI modes, notify that a name argument is required. If no names are discovered, notify an error. `/which-platform-ai-api-key`: notify the active name (defaulting to `default`).
+- [ ] 4. **Update `README.md`.** Document the `PLATFORM_AI_API_KEY` / `PLATFORM_AI_API_KEY_<NAME>` convention with an example, the `platformAiApiKey` setting precedence, both commands and the argument form, the missing-key fallback, and that only names (not values) are ever shown.
 
 ## Verification
 
