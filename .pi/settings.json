@@ -29,8 +29,9 @@
       "check-types",
       "format",
       "format:fix",
+      "test",
       "--filter @dotc/pi-core build",
-      "--filter @dotc/pi-platform-ai-provider"
+      "--filter @dotc/pi-platform-ai-provider test"
     ]
   },
   "lockdown": {
