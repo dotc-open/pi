@@ -5,11 +5,11 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky",
     "format": "prettier --check \"**/*.{ts,js,mjs,json,yaml,yml,md}\"",
     "format:fix": "prettier --write \"**/*.{ts,js,mjs,json,yaml,yml,md}\"",
     "check-types": "turbo check-types",
+    "test": "turbo test",
     "lint": "turbo lint",
     "lint:fix": "turbo lint -- --fix",
     "build": "turbo build"
