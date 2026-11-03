@@ -100,3 +100,20 @@ Not touched: `git-worktree.ts` (`git_worktree_add` is not in the tmp file),
     result (not thrown).
 - Confirm the **old** tools still work unchanged (`git_changes`,
   `commit_changes`, `git_worktree_add`).
+
+## Verification Results
+
+Verified in-session after reloading with `@dotc/pi-core` loaded from
+`../packages/pi-core` (workspace build):
+
+- `git_inspect` — `log`, `show`, and `diff` with paths work; `ref` on `log`
+  rejected ("A ref is only supported for show.").
+- `git_stage_unstage` — stage/unstage round-trip works; directory, missing path,
+  `..` path, and unstage-of-unstaged all rejected with the expected messages.
+- `git_commit` — invalid message and empty index rejected; staged-only commit of
+  this plan file succeeded without sweeping in unstaged `.pi/` changes.
+- Legacy `git_changes`, `commit_changes`, `git_worktree_add` remain registered.
+
+Note: local testing required pointing `.pi/settings.json` at
+`../packages/pi-core`, because Pi was loading the published `0.5.0` copy from
+`.pi/npm/node_modules/@dotc/pi-core`.
