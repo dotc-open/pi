@@ -1,7 +1,7 @@
 ---
 name: scout
 description: Gather information from files and responses from commands to return compressed context for handoff to the parent agent
-tools: read, grep, find, ls, git_changes, shadcn_search, shadcn_docs, current_date
+tools: read, grep, find, ls, git_inspect, shadcn_search, shadcn_docs, current_date
 model: cohere/north-mini-code:free
 thinkingLevel: medium
 ---

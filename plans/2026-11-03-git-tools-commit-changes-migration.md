@@ -80,7 +80,7 @@ Not touched: `git-worktree.ts` (`git_worktree_add` is not in the tmp file),
   - add `promptGuidelines` noting these are the preferred git tools.
 - [x] Register the new file in `package.json` (add, don't remove) and add the
       steering note to `git-changes.ts` and `commit-changes.ts`.
-- [ ] Update `.pi/settings.json` (add new tools, keep old) and
+- [x] Update `.pi/settings.json` (add new tools, keep old) and
       `.pi/agents/scout.md` (`git_changes`→`git_inspect`).
 - [ ] Extend `packages/pi-core/README.md`: new tool sections + legacy note on
       the old two.
