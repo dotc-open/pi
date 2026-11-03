@@ -1,11 +1,52 @@
 import path from 'node:path'
 
-import { type ExtensionAPI, getSettingsListTheme, isToolCallEventType } from '@earendil-works/pi-coding-agent'
+import {
+  type ExtensionAPI,
+  type ExtensionContext,
+  getSettingsListTheme,
+  isToolCallEventType,
+} from '@earendil-works/pi-coding-agent'
 import { Box, Container, SettingsList, Text } from '@earendil-works/pi-tui'
 
 import { SUBAGENT_FLAG } from './constants'
+import { evaluateFilePath, type PathEvaluation } from './path-policy'
 import { defaultLockdownSettings, type LockdownLevel, LockdownLevelSchema } from './schema'
 import { constructSettingsList, isInside, isPiReadablePath, loadSettings } from './utils'
+
+type BlockResult = { block: true; reason: string }
+
+function denyReason(toolName: string, inputPath: string, decision: PathEvaluation): string {
+  const rule = decision.rule ? `\n\nMatched deny rule: "${decision.rule}".` : ''
+  const target = decision.target !== decision.requested ? `\nResolved target: ${decision.target}.` : ''
+  return `[LOCKDOWN] Not allowed to perform action:\n\n${toolName}: ${inputPath}.${target}${rule}`
+}
+
+/**
+ * Prompts for a file call the policy did not allow. Returns `undefined` when
+ * the user allows the single call, otherwise a block result. Without a UI,
+ * the prompt fails closed.
+ */
+async function promptForPath(
+  ctx: ExtensionContext,
+  toolName: string,
+  inputPath: string,
+  rule: string | undefined,
+): Promise<BlockResult | undefined> {
+  const detail = rule ? `\n\nMatched rule: "${rule}".` : ''
+  if (!ctx.hasUI) {
+    return { block: true, reason: `[LOCKDOWN] Not allowed to perform action:\n\n${toolName}: ${inputPath}.${detail}` }
+  }
+
+  const choice = await ctx.ui.select(
+    `[LOCKDOWN]\n⚠️ Allow agent to perform action?\n\n${toolName}: ${inputPath}${detail}`,
+    ['Yes', 'No'],
+  )
+
+  if (choice !== 'Yes') {
+    return { block: true, reason: '[LOCKDOWN] Action blocked by user.' }
+  }
+  return undefined
+}
 
 // Settings
 let lockdownSettings = defaultLockdownSettings()
@@ -91,6 +132,20 @@ export default function (pi: ExtensionAPI) {
     // or under node_modules. Never exempt writes, edits, or custom tools.
     if (permAction === 'read' && isPiReadablePath(ctx.cwd, inputPath)) {
       return
+    }
+
+    // New mode: built-in file tools go through the four path-list policy.
+    if (lockdownSettings.mode === 'new' && permAction) {
+      const action = permAction === 'read' ? 'read' : 'write'
+      const decision = evaluateFilePath(lockdownSettings, ctx.cwd, inputPath, action)
+      switch (decision.outcome) {
+        case 'allow':
+          return
+        case 'block':
+          return { block: true, reason: denyReason(event.toolName, inputPath, decision) }
+        case 'prompt':
+          return promptForPath(ctx, event.toolName, inputPath, decision.rule)
+      }
     }
 
     let permission: LockdownLevel
