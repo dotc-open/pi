@@ -82,7 +82,7 @@ Not touched: `git-worktree.ts` (`git_worktree_add` is not in the tmp file),
       steering note to `git-changes.ts` and `commit-changes.ts`.
 - [x] Update `.pi/settings.json` (add new tools, keep old) and
       `.pi/agents/scout.md` (`git_changes`→`git_inspect`).
-- [ ] Extend `packages/pi-core/README.md`: new tool sections + legacy note on
+- [x] Extend `packages/pi-core/README.md`: new tool sections + legacy note on
       the old two.
 - [ ] Final pass: `pnpm --filter @dotc/pi-core build` (or root `build`).
 
