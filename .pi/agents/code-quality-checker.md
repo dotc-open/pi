@@ -2,7 +2,7 @@
 name: code-quality-checker
 description: Run code quality checks - lint, format, and type check.
 tools: run_npm_script
-model: cohere/north-mini-code:free
+model: platform-ai/bedrock.gpt-6-luna
 thinkingLevel: low
 ---
 
