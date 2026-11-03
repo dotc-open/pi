@@ -1,6 +1,6 @@
 {
   "packages": [
-    "npm:@chrischow/pi-lockdown",
+    "../packages/pi-lockdown",
     "npm:@plannotator/pi-extension",
     "npm:@dotc/pi-platform-ai-provider",
     "npm:@dotc/pi-core"
@@ -31,7 +31,8 @@
       "format:fix",
       "test",
       "--filter @dotc/pi-core build",
-      "--filter @dotc/pi-platform-ai-provider test"
+      "--filter @dotc/pi-platform-ai-provider test",
+      "--filter @dotc/pi-lockdown test"
     ]
   },
   "lockdown": {

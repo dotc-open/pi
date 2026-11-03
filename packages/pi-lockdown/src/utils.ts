@@ -12,7 +12,16 @@ import {
   SETTINGS_KEY,
   SUBAGENT_SETTINGS_KEY,
 } from './constants'
-import { lockdownLevelOptions, type LockdownSettings, LockdownSettingsSchema } from './schema'
+import {
+  defaultLockdownSettings,
+  LEGACY_ONLY_KEYS,
+  LegacyLockdownSettingsSchema,
+  type LegacyModeSettings,
+  lockdownLevelOptions,
+  type LockdownSettings,
+  PATH_POLICY_KEYS,
+  PathPolicySettingsSchema,
+} from './schema'
 
 // Pi's own installation directory is safe to read: its README, docs,
 // examples, source, dist, and bundled dependencies. Writes, edits, and custom
@@ -46,6 +55,49 @@ export function isInside(root: string, value: string): boolean {
   return normalizedValue === root || normalizedValue.startsWith(normalizedRoot)
 }
 
+function notifyIssues(ctx: ExtensionContext, issues: { path: PropertyKey[]; message: string }[]): void {
+  for (const issue of issues) {
+    ctx.ui.notify(`[LOCKDOWN] ${issue.path[0] as string} - ${issue.message}`, 'error')
+  }
+}
+
+/**
+ * Parse a selected settings block into exactly one mode.
+ *
+ * Mode is decided on raw key presence (before defaults) so an explicit `[]`
+ * still opts in. Mixing path-policy keys with legacy keys is a hard error.
+ * Returns `null` when the block is present but invalid.
+ */
+export function parseLockdownSettings(raw: unknown, ctx: ExtensionContext): LockdownSettings | null {
+  const block = (raw ?? {}) as Record<string, unknown>
+  const pathKeys = PATH_POLICY_KEYS.filter((key) => key in block)
+  const legacyKeys = LEGACY_ONLY_KEYS.filter((key) => key in block)
+
+  if (pathKeys.length > 0 && legacyKeys.length > 0) {
+    ctx.ui.notify(
+      `[LOCKDOWN] Cannot mix path-list keys (${pathKeys.join(', ')}) with legacy keys (${legacyKeys.join(', ')}).`,
+      'error',
+    )
+    return null
+  }
+
+  if (pathKeys.length > 0) {
+    const parsed = PathPolicySettingsSchema.safeParse(block)
+    if (!parsed.success) {
+      notifyIssues(ctx, parsed.error.issues)
+      return null
+    }
+    return { mode: 'new', ...parsed.data }
+  }
+
+  const parsed = LegacyLockdownSettingsSchema.safeParse(block)
+  if (!parsed.success) {
+    notifyIssues(ctx, parsed.error.issues)
+    return null
+  }
+  return { mode: 'legacy', ...parsed.data }
+}
+
 /**
  * Parse a single settings key from a settings object.
  *
@@ -65,15 +117,12 @@ function parseLockdownKey(
     return { found: false }
   }
 
-  const parsed = LockdownSettingsSchema.safeParse(raw[key])
-  if (!parsed.success) {
-    for (const issue of parsed.error.issues) {
-      ctx.ui.notify(`[LOCKDOWN] ${issue.path[0] as string} - ${issue.message}`, 'error')
-    }
+  const value = parseLockdownSettings(raw[key], ctx)
+  if (value === null) {
     return null
   }
 
-  return { found: true, value: parsed.data }
+  return { found: true, value }
 }
 
 export function loadSettings(ctx: ExtensionContext, isSubagent = false): LockdownSettings | null {
@@ -99,17 +148,10 @@ export function loadSettings(ctx: ExtensionContext, isSubagent = false): Lockdow
     }
   }
 
-  // Use defaults. Note: fileAccess is a required key, so its default objects
-  // must be nested under `fileAccess` (passing them at the top level throws).
-  return LockdownSettingsSchema.parse({
-    fileAccess: {
-      external: { protected: {}, unprotected: {} },
-      internal: { protected: {}, unprotected: {} },
-    },
-  })
+  return defaultLockdownSettings()
 }
 
-export function constructSettingsList(lockdownSettings: LockdownSettings): SettingItem[] {
+export function constructSettingsList(lockdownSettings: LegacyModeSettings): SettingItem[] {
   const items: SettingItem[] = []
 
   // File access
