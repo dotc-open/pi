@@ -84,7 +84,7 @@ Not touched: `git-worktree.ts` (`git_worktree_add` is not in the tmp file),
       `.pi/agents/scout.md` (`git_changes`→`git_inspect`).
 - [x] Extend `packages/pi-core/README.md`: new tool sections + legacy note on
       the old two.
-- [ ] Final pass: `pnpm --filter @dotc/pi-core build` (or root `build`).
+- [x] Final pass: `pnpm --filter @dotc/pi-core build` (or root `build`).
 
 ## Verification
 
