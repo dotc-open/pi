@@ -1,6 +1,10 @@
 /**
  * Stages all changes (git add .) and creates a single commit with the exact
  * message provided. Message must be Conventional Commits (repo commit-msg hook).
+ *
+ * Legacy: prefer `git_commit` from `git-tools.ts`, which commits only files
+ * already staged (stage them first with `git_stage_unstage`). Kept for
+ * backward compatibility.
  */
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
@@ -15,6 +19,7 @@ export default function (pi: ExtensionAPI) {
       'rejections like commitlint or lint-staged) are reported in the result content, not thrown.',
     promptSnippet: 'Stage all changes and create a git commit with the provided message',
     promptGuidelines: [
+      'Prefer git_commit over the legacy commit_changes tool: git_commit commits only the files already staged (stage them first with git_stage_unstage), while commit_changes runs `git add .` and commits everything.',
       "Use commit_changes to run 'git add . && git commit -m <msg>' in one step when the user asks to commit everything. " +
         'Repo hooks run on commit (pre-commit lint-staged, commit-msg commitlint); if a hook rejects the message, ' +
         'report the rejection from the tool result and try again.',

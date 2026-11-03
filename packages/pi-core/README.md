@@ -5,9 +5,12 @@ A collection of core extensions and tools for the [Pi coding agent](https://gith
 ## Features
 
 - **`subagent`**: Delegate tasks to specialized subagents in isolated Pi processes with support for single execution, parallel batches, and sequential chains.
-- **`git_changes`**: Inspect staged, unstaged, and untracked changes across the working tree in a unified diff view with safety line caps.
-- **`commit_changes`**: Stage and commit repository changes in a single operation, with full handling for Git hooks and error reporting.
+- **`git_inspect`**: Read-only Git inspections (history, status, diffs, branches, remotes, worktrees) with bounded output.
+- **`git_stage_unstage`**: Stage or unstage named repository-relative files with path and tracked/staged-file validation.
+- **`git_commit`**: Commit already-staged files with a validated one-line Conventional Commit message.
 - **`git_worktree_add`**: Create and switch to new branches/worktrees using structured bare-repo conventions and strict branch naming rules.
+- **`git_changes`** (legacy): Inspect staged, unstaged, and untracked changes across the working tree in a unified diff view with safety line caps. Prefer `git_inspect`.
+- **`commit_changes`** (legacy): Stage and commit repository changes in a single operation, with full handling for Git hooks and error reporting. Prefer `git_commit` + `git_stage_unstage`.
 - **`run_npm_script`**: Execute allowlisted project scripts.
 - **`fetch_url`**: Fetch content from web pages, APIs, or raw files with output character limiting and abort signal support.
 - **`current_date`**: Get current date, weekday, time, and timezone information with support for IANA timezones.
@@ -30,7 +33,7 @@ Or configure it in your Pi settings file (`~/.pi/agent/settings.json` or project
 
 ## Extensions & Tools
 
-The package exposes seven independent extensions registered via the Pi `ExtensionAPI`.
+The package exposes eight independent extensions registered via the Pi `ExtensionAPI`.
 
 ### 1. `subagent`
 
@@ -112,7 +115,9 @@ Agents are defined as Markdown files with YAML frontmatter:
 
 ---
 
-### 2. `git_changes`
+### 2. `git_changes` (legacy)
+
+> **Legacy:** superseded by `git_inspect`, which also covers history, status, branches, remotes, and worktrees. Kept for backward compatibility.
 
 Reads line-by-line staged, unstaged, and untracked changes across the Git working tree.
 
@@ -125,7 +130,9 @@ Reads line-by-line staged, unstaged, and untracked changes across the Git workin
 
 ---
 
-### 3. `commit_changes`
+### 3. `commit_changes` (legacy)
+
+> **Legacy:** superseded by `git_commit` + `git_stage_unstage`, which commit only staged files. Kept for backward compatibility.
 
 Stages all changes and creates a Git commit in a single step.
 
@@ -139,7 +146,48 @@ Stages all changes and creates a Git commit in a single step.
 
 ---
 
-### 4. `git_worktree_add`
+### 4. `git_inspect`
+
+Read-only Git inspections in the repository. Prefer this over the legacy `git_changes` tool.
+
+- **Parameters**:
+  - `command` (`string`, required): One of `log`, `show`, `status`, `diff`, `diff --cached`, `worktree list`, `branch`, `remote`.
+  - `ref` (`string`, optional): Commit or ref to show (default `HEAD`); only valid for `show`.
+  - `paths` (`string[]`, optional): Repository-relative paths (literal pathspecs, directories allowed) to limit `diff`, `diff --cached`, or `show`.
+- **Behavior**:
+  - Runs with `cwd = ctx.cwd`; output is truncated to `DEFAULT_MAX_BYTES` / `DEFAULT_MAX_LINES` with an `[Output truncated.]` notice and a `truncated` flag in `details`.
+  - Returns `isError: true` for failing commands; a `ref` on anything other than `show`, or `paths` on anything other than `diff` / `diff --cached` / `show`, is rejected.
+
+---
+
+### 5. `git_stage_unstage`
+
+Stages or unstages named repository-relative files.
+
+- **Parameters**:
+  - `command` (`"stage" | "unstage"`, required).
+  - `paths` (`string[]`, required, min 1): File paths only — directories are rejected for `stage`, and `unstage` requires an already-staged file.
+- **Behavior**:
+  - Validates paths (relative, no `.` / `..` / backslashes) and rejects untracked-and-absent paths.
+  - `stage` runs `git add -A -- <paths>`; `unstage` runs `git restore --staged -- <paths>`. Both use literal pathspecs.
+  - Prefer this over the legacy `commit_changes`, which stages everything with `git add .`.
+
+---
+
+### 6. `git_commit`
+
+Commits already-staged files with a Conventional Commit message. Prefer this over the legacy `commit_changes`.
+
+- **Parameters**:
+  - `message` (`string`, required): One-line Conventional Commit message (validated against `^(build|ci|chore|docs|feat|fix|perf|refactor|revert|style|test)(\([^)]+\))?!?: \S...`).
+- **Behavior**:
+  - Commits only what is currently staged; staging is done separately with `git_stage_unstage`.
+  - Rejects an invalid message or an empty index.
+  - Returns Git output and `isError: true` on failure; repo hooks (e.g. commitlint) surface in the result rather than throwing.
+
+---
+
+### 7. `git_worktree_add`
 
 Creates a Git branch and dedicated worktree according to a bare-repo layout: `(bare-repo)/(prefix)/(name)`.
 
@@ -153,7 +201,7 @@ Creates a Git branch and dedicated worktree according to a bare-repo layout: `(b
 
 ---
 
-### 5. `run_npm_script`
+### 8. `run_npm_script`
 
 Executes configured, allowlisted package-manager commands (`npm` or `pnpm`) from within Pi. Configure the effective Pi settings in `~/.pi/agent/settings.json` or the trusted project's `.pi/settings.json`:
 
@@ -183,7 +231,7 @@ Executes configured, allowlisted package-manager commands (`npm` or `pnpm`) from
 
 ---
 
-### 6. `fetch_url`
+### 9. `fetch_url`
 
 Fetches contents from external HTTP and HTTPS URLs.
 
@@ -198,7 +246,7 @@ Fetches contents from external HTTP and HTTPS URLs.
 
 ---
 
-### 7. `current_date`
+### 10. `current_date`
 
 Provides accurate temporal context to avoid hallucinating current dates or deadlines.
 
