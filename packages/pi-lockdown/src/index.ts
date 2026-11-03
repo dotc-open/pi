@@ -10,7 +10,14 @@ import { Box, Container, SettingsList, Text } from '@earendil-works/pi-tui'
 
 import { SUBAGENT_FLAG } from './constants'
 import { evaluateFilePath, type PathEvaluation } from './path-policy'
-import { defaultLockdownSettings, type LockdownLevel, LockdownLevelSchema } from './schema'
+import {
+  defaultLockdownSettings,
+  type LockdownLevel,
+  LockdownLevelSchema,
+  PATH_POLICY_KEYS,
+  PathEntrySchema,
+  type PathPolicySettings,
+} from './schema'
 import { constructSettingsList, isInside, isPiReadablePath, loadSettings } from './utils'
 
 type BlockResult = { block: true; reason: string }
@@ -53,6 +60,53 @@ let lockdownSettings = defaultLockdownSettings()
 
 function isSubagentProcess(pi: ExtensionAPI): boolean {
   return pi.getFlag(SUBAGENT_FLAG) === true || process.env.PI_LOCKDOWN_SUBAGENT === '1'
+}
+
+/**
+ * New-mode session editor: add/remove entries in the four path lists for the
+ * current session only. Uses Pi's built-in select/input prompts.
+ */
+async function configureNewModeSession(ctx: ExtensionContext, settings: PathPolicySettings): Promise<void> {
+  if (!ctx.hasUI) {
+    ctx.ui.notify('[LOCKDOWN] Session permissions require an interactive UI.', 'error')
+    return
+  }
+
+  while (true) {
+    const labels = PATH_POLICY_KEYS.map(
+      (key) => `${key} (${settings[key].length} ${settings[key].length === 1 ? 'entry' : 'entries'})`,
+    )
+    const chosenList = await ctx.ui.select('[LOCKDOWN] Session permissions — choose a list (Esc to close)', labels)
+    if (chosenList === undefined) return
+    const key = PATH_POLICY_KEYS[labels.indexOf(chosenList)]
+    if (!key) continue
+
+    const entries = settings[key]
+    const operation = await ctx.ui.select(`[LOCKDOWN] ${key}`, ['Add entry', 'Remove entry', 'Back'])
+    if (operation === undefined || operation === 'Back') continue
+
+    if (operation === 'Add entry') {
+      const value = await ctx.ui.input(`[LOCKDOWN] Add entry to ${key}`, 'e.g. e2e/')
+      if (value === undefined) continue
+      const parsed = PathEntrySchema.safeParse(value.trim())
+      if (!parsed.success) {
+        ctx.ui.notify(`[LOCKDOWN] ${parsed.error.issues[0]?.message ?? 'Invalid path entry.'}`, 'error')
+        continue
+      }
+      entries.push(parsed.data)
+      ctx.ui.notify(`[LOCKDOWN] Added "${parsed.data}" to ${key}.`, 'info')
+    } else {
+      if (entries.length === 0) {
+        ctx.ui.notify(`[LOCKDOWN] ${key} has no entries to remove.`, 'info')
+        continue
+      }
+      const entry = await ctx.ui.select(`[LOCKDOWN] Remove entry from ${key}`, [...entries])
+      if (entry === undefined) continue
+      const index = entries.indexOf(entry)
+      if (index >= 0) entries.splice(index, 1)
+      ctx.ui.notify(`[LOCKDOWN] Removed "${entry}" from ${key}.`, 'info')
+    }
+  }
 }
 
 /**
@@ -212,10 +266,11 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand('lockdown:session-permissions', {
     description: 'Configure file access permissions for session.',
     handler: async (_args, ctx) => {
-      if (lockdownSettings.mode !== 'legacy') {
+      const settings = lockdownSettings
+      if (settings.mode === 'new') {
+        await configureNewModeSession(ctx, settings)
         return
       }
-      const settings = lockdownSettings
       const items = constructSettingsList(settings)
 
       await ctx.ui.custom((_tui, theme, _kb, done) => {
