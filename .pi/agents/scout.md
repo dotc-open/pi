@@ -2,7 +2,7 @@
 name: scout
 description: Gather information from files and responses from commands to return compressed context for handoff to the parent agent
 tools: read, grep, find, ls, git_changes, shadcn_search, shadcn_docs, current_date
-model: deepseek/deepseek-v4.1-flash
+model: platform-ai/bedrock.gpt-6-luna
 thinkingLevel: medium
 ---
 
