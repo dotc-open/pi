@@ -4,16 +4,11 @@ import { type ExtensionAPI, getSettingsListTheme, isToolCallEventType } from '@e
 import { Box, Container, SettingsList, Text } from '@earendil-works/pi-tui'
 
 import { SUBAGENT_FLAG } from './constants'
-import { type LockdownLevel, LockdownLevelSchema, LockdownSettingsSchema } from './schema'
+import { defaultLockdownSettings, type LockdownLevel, LockdownLevelSchema } from './schema'
 import { constructSettingsList, isInside, isPiReadablePath, loadSettings } from './utils'
 
 // Settings
-let lockdownSettings = LockdownSettingsSchema.parse({
-  fileAccess: {
-    external: { protected: {}, unprotected: {} },
-    internal: { protected: {}, unprotected: {} },
-  },
-})
+let lockdownSettings = defaultLockdownSettings()
 
 function isSubagentProcess(pi: ExtensionAPI): boolean {
   return pi.getFlag(SUBAGENT_FLAG) === true || process.env.PI_LOCKDOWN_SUBAGENT === '1'
@@ -78,10 +73,6 @@ export default function (pi: ExtensionAPI) {
       inputPath = event.input ? JSON.stringify(event.input) : '.'
     }
 
-    const location: 'internal' | 'external' = isInside(ctx.cwd, inputPath) ? 'internal' : 'external'
-    const isProtected = lockdownSettings.protectedPatterns.some((pattern) => path.matchesGlob(inputPath, pattern))
-    const protection: 'protected' | 'unprotected' = isProtected ? 'protected' : 'unprotected'
-
     let permAction: 'read' | 'edit' | 'write' | undefined = undefined
 
     if (isRead) {
@@ -103,7 +94,10 @@ export default function (pi: ExtensionAPI) {
     }
 
     let permission: LockdownLevel
-    if (permAction && ['read', 'edit', 'write'].includes(permAction)) {
+    if (permAction && lockdownSettings.mode === 'legacy') {
+      const location: 'internal' | 'external' = isInside(ctx.cwd, inputPath) ? 'internal' : 'external'
+      const isProtected = lockdownSettings.protectedPatterns.some((pattern) => path.matchesGlob(inputPath, pattern))
+      const protection: 'protected' | 'unprotected' = isProtected ? 'protected' : 'unprotected'
       permission = lockdownSettings.fileAccess[location][protection][permAction]
     } else {
       // Custom tools: Default to warn
@@ -163,7 +157,11 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand('lockdown:session-permissions', {
     description: 'Configure file access permissions for session.',
     handler: async (_args, ctx) => {
-      const items = constructSettingsList(lockdownSettings)
+      if (lockdownSettings.mode !== 'legacy') {
+        return
+      }
+      const settings = lockdownSettings
+      const items = constructSettingsList(settings)
 
       await ctx.ui.custom((_tui, theme, _kb, done) => {
         const container = new Container()
@@ -188,11 +186,11 @@ export default function (pi: ExtensionAPI) {
             // Handle value change
             const [permType, locationOrCustomTool, protection, perm] = id.split('__')
             if (permType === 'fileAccess') {
-              lockdownSettings.fileAccess[locationOrCustomTool as 'external' | 'internal'][
+              settings.fileAccess[locationOrCustomTool as 'external' | 'internal'][
                 protection as 'protected' | 'unprotected'
               ][perm as 'read' | 'write' | 'edit'] = LockdownLevelSchema.parse(newValue)
             } else {
-              lockdownSettings.customTools[locationOrCustomTool as string] = LockdownLevelSchema.parse(newValue)
+              settings.customTools[locationOrCustomTool as string] = LockdownLevelSchema.parse(newValue)
             }
           },
           () => done(undefined), // On close
