@@ -66,3 +66,44 @@ Planned files under `packages/pi-lockdown/src/__tests__/`:
 - `resolution.test.ts` — `@` prefix, `..`/separator normalization, sibling-prefix rejection, requested-vs-canonical target checks, `e2e/` symlink to external and to a denied internal dir, new file under a symlink parent, unresolvable parent fails closed.
 - `tool-flow.test.ts` — read/grep/find/ls vs edit/write dispatch, bash and empty-write blocks, Pi package read exemption, custom tools, warn allow/deny one-shot, headless warn blocks, deny reason includes path and rule.
 - `session-commands.test.ts` — add/remove entries in each new-mode list, entry validation before mutation, reset reloads selected settings, legacy editor retained, non-interactive mode reports UI required.
+
+## Follow-up: migrate the `lockdownSubagent` profile
+
+### Context
+
+The new engine already selects a mode per selected settings block (`loadSettings(ctx, true)` in `packages/pi-lockdown/src/utils.ts` prefers `lockdownSubagent` over `lockdown` and parses whichever block it finds). The repo's own `.pi/settings.json` migrated the `lockdown` block to the four arrays but left `lockdownSubagent` on the legacy matrix, so subagent runs still execute the old policy. The PRD, RFC and plan never called this out.
+
+### Change
+
+Replace `protectedPatterns` + `fileAccess` in the `.pi/settings.json` `lockdownSubagent` block with new-mode arrays that stay faithful to the old intent: reads inside the project, writes only prompted (nothing allow-listed), secrets and external writes denied. Keep the block's stricter `customTools`/`defaultTools` untouched.
+
+```jsonc
+"lockdownSubagent": {
+  // customTools/defaultTools unchanged
+  "denyRead": ["**/.env*"],
+  "allowRead": [".", "./**/.env.development"],
+  "allowWrite": [],
+  "denyWrite": ["**/.env*", "**/.git/**", ":external"]
+}
+```
+
+This accepts the two deviations the RFC already documents for new mode: external unprotected reads now **prompt** instead of allow, and `**/.git/**` writes **hard-block** instead of prompt. `**/node_modules/**` is omitted because the legacy subagent block never protected it.
+
+### Files to modify
+
+- `.pi/settings.json` — `lockdownSubagent` block.
+- `packages/pi-lockdown/README.md` — one line that `lockdownSubagent` picks its mode independently and uses its own arrays/defaults.
+- `prd/2026-11-03-lockdown-sandbox-config-prd.md` — retained-behaviour wording and the subagent user story (done).
+- `rfc/2026-11-03-rfc-lockdown-path-list-policy.md` — profile named in the implementation scope (done).
+
+### Steps
+
+After **each step**, run `lint:fix`, `format:fix`, `check-types` via the `code-quality-checker` subagent and commit, including plan-file updates.
+
+- [ ] Migrate the `.pi/settings.json` `lockdownSubagent` block to the arrays above and confirm `loadSettings(ctx, true)` reports new mode with `allowWrite: []`.
+- [ ] Add the README note that `lockdownSubagent` selects its mode independently of `lockdown` and uses its own arrays/defaults.
+
+### Verification
+
+- `pnpm --filter @dotc/pi-lockdown test` still passes (`settings.test.ts` already covers subagent-profile selection).
+- Reload Pi, dispatch a subagent (e.g. `scout`) and confirm project reads proceed, a read of `~/.ssh/config` prompts (and fails closed headless), and a read of `.env` hits the soft read deny. Use disposable fixture files only.

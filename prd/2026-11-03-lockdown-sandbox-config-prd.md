@@ -107,9 +107,10 @@ Mapping to legacy defaults:
 
 **9. Retained behaviour**
 
-- `customTools` and `defaultTools` remain as they are.
+- `customTools` and `defaultTools` remain as they are, in both the `lockdown` and `lockdownSubagent` blocks.
 - `bash` remains blocked outright.
-- The `session_start` / settings-load flow, subagent profile (`lockdownSubagent`), and shutdown-on-invalid-config behaviour are unchanged.
+- The `session_start` / settings-load flow and shutdown-on-invalid-config behaviour are unchanged.
+- The `lockdownSubagent` profile keeps its stricter `customTools`/`defaultTools`, but its **file-access policy uses the same mode switch as `lockdown`**: once any of the four path-list keys is present it runs the new engine with its own arrays/defaults, and only a block with none of them falls back to the legacy matrix. The profile's mode is selected independently — a new-mode `lockdown` block does not migrate a legacy `lockdownSubagent` block.
 
 **10. Documentation**
 
@@ -143,10 +144,11 @@ Mapping to legacy defaults:
 
 8. As an existing Lockdown user, I want my current `fileAccess`/`protectedPatterns` config to keep working unchanged, so that upgrading doesn't break me.
 9. As an existing Lockdown user, I want a clear error if I mix legacy and new keys, so that I know which model is active.
+10. As an existing Lockdown user, I want the `lockdownSubagent` profile to use the same path-list model as `lockdown`, so that subagents inherit the new policy instead of a stale legacy matrix.
 
 **Agent (secondary)**
 
-10. As an agent, I want an explicit block reason naming the path and rule, so that the user and I understand why a call was denied.
+11. As an agent, I want an explicit block reason naming the path and rule, so that the user and I understand why a call was denied.
 
 ## User Flows
 
