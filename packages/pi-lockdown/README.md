@@ -176,6 +176,8 @@ pi-sandbox applies deny-first precedence to writes and allow-first to reads. Loc
 
 `/lockdown:session-permissions` shows the four arrays with their current entries inline (dim, single line, truncated with `...`). Choosing one opens a vertical list (windowed to 10 rows): move with ↑↓, press Del to flag an entry for deletion, and type in the trailing row to add one (Tab completes paths from the filesystem). Enter adds the typed text, or saves when the row is empty (a save is final and closes the command); Esc returns to the list menu without saving. Entries are validated before they are applied, and edits are in-memory only. `/lockdown:reset` reloads the selected `settings.json` block (or defaults), discarding session edits. In a non-interactive session the command reports that an interactive UI is required.
 
+Agents can request the same session-only change with the `lockdown_session_permissions` tool: `list` (`denyRead`/`allowRead`/`allowWrite`/`denyWrite`), `action` (`add`/`remove`/`set`), and `entries`. It is a normal custom tool, so its level comes from `customTools` and defaults to `warn` — every call prompts unless you set it to `allow`. It is available to the main agent only (never to subagents) and refuses to run in legacy mode. Allowing it lets the agent widen its own session access, so keep it at `warn` (or `block`) unless you deliberately want the agent to manage its own session permissions.
+
 ### Legacy mode (fileAccess matrix)
 
 If `fileAccess` holds the legacy matrix (`external`/`internal`), or is absent alongside `protectedPatterns`, the original matrix runs unchanged.

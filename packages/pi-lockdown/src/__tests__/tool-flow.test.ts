@@ -43,15 +43,30 @@ function makeCtx(hasUI: boolean, select: (title: string, options: string[]) => P
   return ctx
 }
 
+type ToolExecutor = {
+  execute: (
+    toolCallId: string,
+    params: unknown,
+    ctx: ExtensionContext,
+  ) => Promise<{ content: { text: string }[]; isError?: boolean }>
+}
+
 function load(project: Record<string, unknown>, options: { hasUI?: boolean } = {}) {
   state.project = project
   state.global = {}
   handlers.clear()
 
+  const tools = new Map<string, ToolExecutor>()
   const pi = {
     registerFlag: vi.fn(),
     on: (name: string, handler: Handler) => handlers.set(name, handler),
     registerCommand: vi.fn(),
+    registerTool: (tool: {
+      name: string
+      execute: (id: string, params: unknown, signal: unknown, update: unknown, ctx: ExtensionContext) => Promise<never>
+    }) => {
+      tools.set(tool.name, { execute: (id, params, ctx) => tool.execute(id, params, undefined, undefined, ctx) })
+    },
     setActiveTools: vi.fn(),
     getFlag: vi.fn().mockReturnValue(false),
   } as unknown as ExtensionAPI
@@ -62,7 +77,7 @@ function load(project: Record<string, unknown>, options: { hasUI?: boolean } = {
   const ctx = makeCtx(options.hasUI ?? true, select)
   handlers.get('session_start')?.(undefined, ctx)
 
-  return { pi, ctx, select, toolCall: handlers.get('tool_call') as Handler }
+  return { pi, ctx, select, tools, toolCall: handlers.get('tool_call') as Handler }
 }
 
 beforeEach(() => {
@@ -169,6 +184,48 @@ describe('new-mode prompt outcomes', () => {
     const { toolCall, ctx } = load({ lockdown: { fileAccess: { denyRead: ['**/.env*'] } } })
     expect(await toolCall({ toolName: 'read', input: { path: path.join(state.cwd, '.env') } }, ctx)).toBeUndefined()
     expect(ctx.ui.select).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('session permission tool', () => {
+  it('applies an add to the session list', async () => {
+    const { toolCall, ctx, tools } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
+
+    const result = await tools
+      .get('lockdown_session_permissions')
+      ?.execute('call', { list: 'allowWrite', action: 'add', entries: ['src/'] }, ctx)
+
+    expect(result?.isError).toBeUndefined()
+    expect(result?.content[0]?.text).toContain('allowWrite is now: src/')
+    expect(
+      await toolCall({ toolName: 'write', input: { path: path.join(state.cwd, 'src', 'a'), content: 'x' } }, ctx),
+    ).toBeUndefined()
+  })
+
+  it('rejects changes in legacy mode', async () => {
+    const { ctx, tools } = load({
+      lockdown: {
+        fileAccess: { external: { protected: {}, unprotected: {} }, internal: { protected: {}, unprotected: {} } },
+      },
+    })
+
+    const result = await tools
+      .get('lockdown_session_permissions')
+      ?.execute('call', { list: 'allowWrite', action: 'add', entries: ['src/'] }, ctx)
+
+    expect(result?.isError).toBe(true)
+    expect(result?.content[0]?.text).toContain('new mode')
+  })
+
+  it('rejects empty entries', async () => {
+    const { ctx, tools } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
+
+    const result = await tools
+      .get('lockdown_session_permissions')
+      ?.execute('call', { list: 'allowWrite', action: 'add', entries: ['   '] }, ctx)
+
+    expect(result?.isError).toBe(true)
+    expect(result?.content[0]?.text).toContain('No entries')
   })
 })
 

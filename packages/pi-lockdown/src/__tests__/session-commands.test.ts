@@ -95,6 +95,7 @@ function setup(projectLockdown: Record<string, unknown>, options: { hasUI?: bool
     registerFlag: vi.fn(),
     on: (name: string, handler: Handler) => handlers.set(name, handler),
     registerCommand: (name: string, opts: { handler: CommandHandler }) => commands.set(name, opts.handler),
+    registerTool: vi.fn(),
     setActiveTools: vi.fn(),
     getFlag: vi.fn().mockReturnValue(false),
   } as unknown as ExtensionAPI
