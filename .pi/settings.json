@@ -51,10 +51,16 @@
       "subagent": "allow"
     },
     "defaultTools": ["read", "edit", "write", "grep", "find", "ls"],
-    "denyRead": ["**/.env*"],
-    "allowRead": [".", "./**/.env.development", "~/.pi/agent/install/releases/*/node_modules/@earendil-works/pi-*/**"],
-    "allowWrite": ["e2e/"],
-    "denyWrite": ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+    "fileSystemAccess": {
+      "denyRead": ["**/.env*"],
+      "allowRead": [
+        ".",
+        "./**/.env.development",
+        "~/.pi/agent/install/releases/*/node_modules/@earendil-works/pi-*/**"
+      ],
+      "allowWrite": ["e2e/"],
+      "denyWrite": ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+    }
   },
   "lockdownSubagent": {
     "customTools": {
@@ -71,9 +77,15 @@
       "subagent": "block"
     },
     "defaultTools": ["read", "grep", "find", "ls"],
-    "denyRead": ["**/.env*"],
-    "allowRead": [".", "./**/.env.development", "~/.pi/agent/install/releases/*/node_modules/@earendil-works/pi-*/**"],
-    "allowWrite": ["e2e/"],
-    "denyWrite": ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+    "fileSystemAccess": {
+      "denyRead": ["**/.env*"],
+      "allowRead": [
+        ".",
+        "./**/.env.development",
+        "~/.pi/agent/install/releases/*/node_modules/@earendil-works/pi-*/**"
+      ],
+      "allowWrite": ["e2e/"],
+      "denyWrite": ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+    }
   }
 }

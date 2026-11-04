@@ -57,26 +57,28 @@ Add a `lockdown` property in your project or global `settings.json`. The order o
 
 ### Mode switch
 
-- If **any** of `denyRead` / `allowRead` / `allowWrite` / `denyWrite` is present, the **new path-list policy** runs. An explicit `[]` counts as present, so `"allowWrite": []` opts in.
+- If a `fileSystemAccess` key is present, the **new path-list policy** runs. It may be `{}` to use every default.
 - Otherwise, the **legacy** `fileAccess` matrix + `protectedPatterns` runs exactly as before.
-- Mixing a path-list key with a legacy key (`fileAccess` or `protectedPatterns`) is a **hard config error** that names the offending keys. Lockdown will not start rather than silently guess a mode.
+- Mixing `fileSystemAccess` with a legacy key (`fileAccess` or `protectedPatterns`) is a **hard config error** that names the offending keys. Path arrays placed at the top level (the old shape) are rejected with a message to nest them under `fileSystemAccess`. Lockdown will not start rather than silently guess a mode.
 
 ### Path-list policy (new mode)
 
 ```jsonc
 "lockdown": {
-  // For READS:
-  // - ANY read is prompted unless the path is in allowRead or allowWrite
-  // - denyRead is not a hard-block; it only prompts
-  "denyRead": ["**/.env*"],
-  "allowRead": [".", "./**/.env.development"],
+  "fileSystemAccess": {
+    // For READS:
+    // - ANY read is prompted unless the path is in allowRead or allowWrite
+    // - denyRead is not a hard-block; it only prompts
+    "denyRead": ["**/.env*"],
+    "allowRead": [".", "./**/.env.development"],
 
-  // For WRITES:
-  // - allowWrite also grants read access to the same paths
-  // - empty ALLOW means every write is prompted
-  // - a winning DENY is never prompted
-  "allowWrite": [],
-  "denyWrite": ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+    // For WRITES:
+    // - allowWrite also grants read access to the same paths
+    // - empty ALLOW means every write is prompted
+    // - a winning DENY is never prompted
+    "allowWrite": [],
+    "denyWrite": ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+  }
 }
 ```
 
@@ -117,10 +119,12 @@ On an exact tie, **deny wins**. The outcome then depends on the action:
 Each default applies only when its array is omitted.
 
 ```jsonc
-"denyRead":   ["**/.env*"],
-"allowRead":  [".", "./**/.env.development"],
-"allowWrite": [],
-"denyWrite":  ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+"fileSystemAccess": {
+  "denyRead":   ["**/.env*"],
+  "allowRead":  [".", "./**/.env.development"],
+  "allowWrite": [],
+  "denyWrite":  ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+}
 ```
 
 These deliberately differ from the legacy defaults: protected internal **writes** change from prompt to hard block, and protected external **reads** change from block to prompt. `denyRead` never hard-blocks.
@@ -132,7 +136,9 @@ Grant unattended writes under `e2e/` while everything else stays controlled:
 ```json
 {
   "lockdown": {
-    "allowWrite": ["e2e/"]
+    "fileSystemAccess": {
+      "allowWrite": ["e2e/"]
+    }
   }
 }
 ```
@@ -146,8 +152,10 @@ Make a project read-only except for one directory (a write allowlist):
 ```json
 {
   "lockdown": {
-    "denyWrite": ["*"],
-    "allowWrite": ["e2e/"]
+    "fileSystemAccess": {
+      "denyWrite": ["*"],
+      "allowWrite": ["e2e/"]
+    }
   }
 }
 ```
@@ -170,7 +178,7 @@ pi-sandbox applies deny-first precedence to writes and allow-first to reads. Loc
 
 ### Legacy mode (fileAccess matrix)
 
-If no path-list key is present, the original matrix runs unchanged.
+If `fileSystemAccess` is not present, the original matrix runs unchanged.
 
 ```json
 {
@@ -225,9 +233,9 @@ Default protected patterns:
 
 #### Migrating to the new mode
 
-1. Remove `fileAccess` and `protectedPatterns`, then add whichever of the four arrays you need.
+1. Remove `fileAccess` and `protectedPatterns`, then add a `fileSystemAccess` object with whichever of the four arrays you need.
 2. Omitted arrays use the [new-mode defaults](#defaults); set `"allowWrite": []` explicitly if you want every write to prompt.
-3. Lockdown refuses to start if a new key appears alongside `fileAccess` or `protectedPatterns`, and names the conflicting keys.
+3. Lockdown refuses to start if `fileSystemAccess` appears alongside `fileAccess` or `protectedPatterns`, and names the conflicting keys.
 
 In legacy mode, `/lockdown:session-permissions` keeps its original editor and toggles the `fileAccess` slots (and custom-tool levels) for the session.
 
@@ -246,15 +254,19 @@ Resolution order for a **subagent** process: (1) project `lockdownSubagent`, (2)
 ```json
 {
   "lockdown": {
-    "allowWrite": ["."],
-    "denyWrite": [".env", ":external"]
+    "fileSystemAccess": {
+      "allowWrite": ["."],
+      "denyWrite": [".env", ":external"]
+    }
   },
   "lockdownSubagent": {
     "customTools": {},
     "defaultTools": ["read", "grep", "find", "ls"],
-    "allowRead": ["."],
-    "allowWrite": [],
-    "denyWrite": ["*"]
+    "fileSystemAccess": {
+      "allowRead": ["."],
+      "allowWrite": [],
+      "denyWrite": ["*"]
+    }
   }
 }
 ```

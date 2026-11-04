@@ -33,8 +33,8 @@ beforeEach(() => {
 
 describe('loadSettings source order', () => {
   it('prefers the project block over the global block, without merging', () => {
-    state.project = { lockdown: { allowWrite: ['e2e/'] } }
-    state.global = { lockdown: { allowWrite: ['global/'], denyWrite: ['.env'] } }
+    state.project = { lockdown: { fileSystemAccess: { allowWrite: ['e2e/'] } } }
+    state.global = { lockdown: { fileSystemAccess: { allowWrite: ['global/'], denyWrite: ['.env'] } } }
 
     const settings = newMode(loadSettings(makeCtx().ctx))
     expect(settings.allowWrite).toEqual(['e2e/'])
@@ -43,7 +43,7 @@ describe('loadSettings source order', () => {
   })
 
   it('falls back to the global block when the project has no block', () => {
-    state.global = { lockdown: { allowWrite: ['global/'] } }
+    state.global = { lockdown: { fileSystemAccess: { allowWrite: ['global/'] } } }
     expect(newMode(loadSettings(makeCtx().ctx)).allowWrite).toEqual(['global/'])
   })
 
@@ -56,28 +56,28 @@ describe('loadSettings source order', () => {
 describe('loadSettings subagent profile', () => {
   it('prefers project lockdownSubagent over project lockdown', () => {
     state.project = {
-      lockdownSubagent: { allowWrite: ['subagent/'] },
-      lockdown: { allowWrite: ['main/'] },
+      lockdownSubagent: { fileSystemAccess: { allowWrite: ['subagent/'] } },
+      lockdown: { fileSystemAccess: { allowWrite: ['main/'] } },
     }
     expect(newMode(loadSettings(makeCtx().ctx, true)).allowWrite).toEqual(['subagent/'])
   })
 
   it('prefers global lockdownSubagent over project lockdown', () => {
-    state.project = { lockdown: { allowWrite: ['main/'] } }
-    state.global = { lockdownSubagent: { allowWrite: ['global-subagent/'] } }
+    state.project = { lockdown: { fileSystemAccess: { allowWrite: ['main/'] } } }
+    state.global = { lockdownSubagent: { fileSystemAccess: { allowWrite: ['global-subagent/'] } } }
     expect(newMode(loadSettings(makeCtx().ctx, true)).allowWrite).toEqual(['global-subagent/'])
   })
 
   it('falls back to project lockdown when no subagent profile exists', () => {
-    state.project = { lockdown: { allowWrite: ['main/'] } }
-    state.global = { lockdown: { allowWrite: ['global/'] } }
+    state.project = { lockdown: { fileSystemAccess: { allowWrite: ['main/'] } } }
+    state.global = { lockdown: { fileSystemAccess: { allowWrite: ['global/'] } } }
     expect(newMode(loadSettings(makeCtx().ctx, true)).allowWrite).toEqual(['main/'])
   })
 })
 
 describe('loadSettings invalid config', () => {
   it('returns null and shuts down on an invalid selected block', () => {
-    state.project = { lockdown: { allowWrite: [''] } }
+    state.project = { lockdown: { fileSystemAccess: { allowWrite: [''] } } }
     const { ctx, shutdown } = makeCtx()
     expect(loadSettings(ctx)).toBeNull()
     expect(shutdown).toHaveBeenCalled()
