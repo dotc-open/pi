@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
+import type { ExtensionAPI, ExtensionContext, Theme } from '@earendil-works/pi-coding-agent'
+import type { Component } from '@earendil-works/pi-tui'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const state = vi.hoisted(() => ({
@@ -21,19 +22,70 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
   isToolCallEventType: (name: string, event: unknown) => (event as { toolName?: string })?.toolName === name,
 }))
 
-vi.mock('@earendil-works/pi-tui', () => ({
-  Box: class {},
-  Container: class {},
-  SettingsList: class {},
-  Text: class {},
-}))
-
 import lockdownExtension from '../index'
+import type { PathPolicySettings } from '../schema'
+import { applyListEdits, createListChooser, createListEditor } from '../session-editor'
 
 type Handler = (event: unknown, ctx: unknown) => unknown
 type CommandHandler = (args: unknown, ctx: unknown) => Promise<unknown>
 
-function setup(projectLockdown: Record<string, unknown>, options: { hasUI?: boolean } = {}) {
+const UP = '\x1b[A'
+const DOWN = '\x1b[B'
+const ENTER = '\r'
+const ESCAPE = '\x1b'
+const DELETE = '\x1b[3~'
+const TAB = '\t'
+
+function fakeTheme() {
+  return {
+    fg: vi.fn((_color: string, text: string) => text),
+    bold: vi.fn((text: string) => text),
+    strikethrough: vi.fn((text: string) => text),
+  } as unknown as Theme
+}
+
+function policySettings(overrides: Partial<PathPolicySettings> = {}): PathPolicySettings {
+  return {
+    defaultTools: ['read', 'edit', 'write', 'grep', 'find', 'ls'],
+    customTools: {},
+    denyRead: ['**/.env*'],
+    allowRead: ['.'],
+    allowWrite: [],
+    denyWrite: ['**/.git/**'],
+    ...overrides,
+  }
+}
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+async function nextComponent(components: Component[], count: number): Promise<Component> {
+  for (let i = 0; i < 100; i += 1) {
+    const component = components[count - 1]
+    if (component) return component
+    await tick()
+  }
+  throw new Error(`component ${count} was not created`)
+}
+
+/** A `ctx.ui.custom` replacement that hands tests the created components. */
+function createCustomDriver() {
+  const components: Component[] = []
+  const custom = vi.fn(
+    (factory: unknown) =>
+      new Promise((resolve) => {
+        const component = (factory as (...args: unknown[]) => Component)(
+          { requestRender: vi.fn() },
+          fakeTheme(),
+          {},
+          resolve,
+        )
+        components.push(component)
+      }),
+  )
+  return { custom, components }
+}
+
+function setup(projectLockdown: Record<string, unknown>, options: { hasUI?: boolean; custom?: unknown } = {}) {
   state.project = { lockdown: projectLockdown }
   state.global = {}
 
@@ -51,10 +103,11 @@ function setup(projectLockdown: Record<string, unknown>, options: { hasUI?: bool
 
   const select = vi.fn()
   const input = vi.fn()
+  const custom = options.custom ?? vi.fn()
   const ctx = {
     cwd: state.cwd,
     hasUI: options.hasUI ?? true,
-    ui: { notify: vi.fn(), select, input, custom: vi.fn() },
+    ui: { notify: vi.fn(), select, input, custom },
     shutdown: vi.fn(),
   } as unknown as ExtensionContext
 
@@ -64,6 +117,7 @@ function setup(projectLockdown: Record<string, unknown>, options: { hasUI?: bool
     ctx,
     select,
     input,
+    custom: custom as ReturnType<typeof vi.fn>,
     toolCall: handlers.get('tool_call') as Handler,
     sessionPermissions: commands.get('lockdown:session-permissions') as CommandHandler,
     reset: commands.get('lockdown:reset') as CommandHandler,
@@ -83,105 +137,203 @@ beforeEach(() => {
   mkdirSync(state.packageDir, { recursive: true })
 })
 
+describe('applyListEdits', () => {
+  it('removes flagged entries, appends additions and skips duplicates', () => {
+    expect(applyListEdits(['a', 'b'], { added: ['c', 'a'], removed: ['b'] })).toEqual(['a', 'c'])
+  })
+})
+
+describe('list chooser', () => {
+  it('shows each list inline in a dim style, truncated to one line', () => {
+    const theme = fakeTheme()
+    const chooser = createListChooser(
+      policySettings({ denyRead: ['a'.repeat(200)], allowWrite: ['e2e/'] }),
+      theme,
+      { requestRender: vi.fn() },
+      vi.fn(),
+    )
+
+    const lines = chooser.render(40)
+    const denyLine = lines.find((line) => line.includes('denyRead'))
+    expect(denyLine).toContain('...')
+    expect(theme.fg).toHaveBeenCalledWith('dim', expect.stringContaining('e2e/'))
+  })
+
+  it('returns the selected key and closes on escape', () => {
+    const done = vi.fn()
+    const chooser = createListChooser(policySettings(), fakeTheme(), { requestRender: vi.fn() }, done)
+
+    chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+    expect(done).toHaveBeenCalledWith('allowWrite')
+
+    chooser.handleInput?.(ESCAPE)
+    expect(done).toHaveBeenCalledWith(undefined)
+  })
+})
+
+describe('list editor', () => {
+  it('flags an entry for deletion and returns it on escape', () => {
+    const done = vi.fn()
+    const editor = createListEditor('allowWrite', ['e2e/'], state.cwd, fakeTheme(), { requestRender: vi.fn() }, done)
+
+    editor.handleInput?.(UP)
+    editor.handleInput?.(DELETE)
+    expect(done).not.toHaveBeenCalled()
+
+    editor.handleInput?.(ESCAPE)
+    expect(done).toHaveBeenCalledWith({ added: [], removed: ['e2e/'] })
+  })
+
+  it('adds free text from the trailing row', () => {
+    const done = vi.fn()
+    const editor = createListEditor('allowWrite', [], state.cwd, fakeTheme(), { requestRender: vi.fn() }, done)
+
+    for (const character of 'tmp/') editor.handleInput?.(character)
+    editor.handleInput?.(ENTER)
+    editor.handleInput?.(ESCAPE)
+
+    expect(done).toHaveBeenCalledWith({ added: ['tmp/'], removed: [] })
+  })
+
+  it('completes the free text from the filesystem', async () => {
+    mkdirSync(path.join(state.cwd, 'e2e'))
+    const done = vi.fn()
+    const editor = createListEditor('allowWrite', [], state.cwd, fakeTheme(), { requestRender: vi.fn() }, done)
+
+    editor.handleInput?.('e')
+    editor.handleInput?.('2')
+    await tick()
+    editor.handleInput?.(TAB)
+    editor.handleInput?.(ENTER)
+    editor.handleInput?.(ESCAPE)
+
+    expect(done).toHaveBeenCalledWith({ added: ['e2e/'], removed: [] })
+  })
+})
+
 describe('new-mode session permissions', () => {
   it('reports that an interactive UI is required when headless', async () => {
-    const { ctx, sessionPermissions, select } = setup({ allowWrite: [] }, { hasUI: false })
+    const { ctx, sessionPermissions, custom } = setup({ allowWrite: [] }, { hasUI: false })
 
     await sessionPermissions(undefined, ctx)
 
     expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining('interactive UI'), 'error')
-    expect(select).not.toHaveBeenCalled()
+    expect(custom).not.toHaveBeenCalled()
   })
 
   it('adds an entry to a selected list and applies it immediately', async () => {
-    const { ctx, sessionPermissions, select, input, toolCall } = setup({ allowWrite: [], denyWrite: [] })
-    select
-      .mockResolvedValueOnce('allowWrite (0 entries)')
-      .mockResolvedValueOnce('Add entry')
-      .mockResolvedValueOnce(undefined)
-    input.mockResolvedValueOnce('e2e/')
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall } = setup({ allowWrite: [], denyWrite: [] }, { custom })
 
-    await sessionPermissions(undefined, ctx)
+    const run = sessionPermissions(undefined, ctx)
+
+    const chooser = await nextComponent(components, 1)
+    chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    for (const character of 'e2e/') editor.handleInput?.(character)
+    editor.handleInput?.(ENTER)
+    editor.handleInput?.(ESCAPE)
+
+    const closing = await nextComponent(components, 3)
+    closing.handleInput?.(ESCAPE)
+    await run
 
     expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining('Added "e2e/"'), 'info')
     expect(await writeFile(toolCall, ctx, 'e2e/snapshot.txt')).toBeUndefined()
   })
 
+  it('removes an entry from a selected list', async () => {
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall } = setup({ allowWrite: ['e2e/'], denyWrite: [] }, { custom })
+
+    const run = sessionPermissions(undefined, ctx)
+
+    const chooser = await nextComponent(components, 1)
+    chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    editor.handleInput?.(UP)
+    editor.handleInput?.(DELETE)
+    editor.handleInput?.(ESCAPE)
+
+    const closing = await nextComponent(components, 3)
+    closing.handleInput?.(ESCAPE)
+    await run
+
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining('Removed "e2e/"'), 'info')
+
+    ctx.ui.select = vi.fn().mockResolvedValue('No')
+    expect(await writeFile(toolCall, ctx, 'e2e/snapshot.txt')).toMatchObject({ block: true })
+  })
+
   it('rejects an invalid entry before mutating the list', async () => {
-    const { ctx, sessionPermissions, select, input, toolCall } = setup({ allowWrite: [], denyWrite: [] })
-    select
-      .mockResolvedValueOnce('allowWrite (0 entries)')
-      .mockResolvedValueOnce('Add entry')
-      .mockResolvedValueOnce(undefined)
-    input.mockResolvedValueOnce('   ')
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall } = setup({ allowWrite: [], denyWrite: [] }, { custom })
 
-    await sessionPermissions(undefined, ctx)
+    const run = sessionPermissions(undefined, ctx)
 
-    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining('must not be empty'), 'error')
+    const chooser = await nextComponent(components, 1)
+    chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
 
-    select.mockReset()
-    select.mockResolvedValueOnce('No')
+    const editor = await nextComponent(components, 2)
+    editor.handleInput?.(' ')
+    editor.handleInput?.(ENTER)
+    editor.handleInput?.(ESCAPE)
+
+    const closing = await nextComponent(components, 3)
+    closing.handleInput?.(ESCAPE)
+    await run
+
+    expect(ctx.ui.notify).not.toHaveBeenCalledWith(expect.stringContaining('Added'), 'info')
+
+    ctx.ui.select = vi.fn().mockResolvedValue('No')
     expect(await writeFile(toolCall, ctx, 'e2e/snapshot.txt')).toMatchObject({
       block: true,
       reason: '[LOCKDOWN] Action blocked by user.',
     })
   })
-
-  it('removes an entry from a selected list', async () => {
-    const { ctx, sessionPermissions, select, toolCall } = setup({ allowWrite: ['e2e/'], denyWrite: [] })
-    select
-      .mockResolvedValueOnce('allowWrite (1 entry)')
-      .mockResolvedValueOnce('Remove entry')
-      .mockResolvedValueOnce('e2e/')
-      .mockResolvedValueOnce(undefined)
-
-    await sessionPermissions(undefined, ctx)
-
-    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining('Removed "e2e/"'), 'info')
-
-    select.mockReset()
-    select.mockResolvedValueOnce('No')
-    expect(await writeFile(toolCall, ctx, 'e2e/snapshot.txt')).toMatchObject({ block: true })
-  })
-
-  it('treats cancellation at the list prompt as closing the editor', async () => {
-    const { ctx, sessionPermissions, select } = setup({ allowWrite: ['e2e/'], denyWrite: [] })
-    select.mockResolvedValueOnce(undefined)
-
-    await sessionPermissions(undefined, ctx)
-
-    // Only the list prompt ran; no mutation happened.
-    expect(select).toHaveBeenCalledTimes(1)
-    expect(ctx.ui.notify).not.toHaveBeenCalled()
-  })
 })
 
 describe('lockdown:reset', () => {
   it('discards session edits by reloading the selected settings', async () => {
-    const { ctx, sessionPermissions, select, input, toolCall, reset } = setup({
-      allowWrite: ['e2e/'],
-      denyWrite: [],
-    })
-    select
-      .mockResolvedValueOnce('allowWrite (1 entry)')
-      .mockResolvedValueOnce('Add entry')
-      .mockResolvedValueOnce(undefined)
-    input.mockResolvedValueOnce('tmp/')
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall, reset } = setup({ allowWrite: ['e2e/'], denyWrite: [] }, { custom })
 
-    await sessionPermissions(undefined, ctx)
+    const run = sessionPermissions(undefined, ctx)
+    const chooser = await nextComponent(components, 1)
+    chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    for (const character of 'tmp/') editor.handleInput?.(character)
+    editor.handleInput?.(ENTER)
+    editor.handleInput?.(ESCAPE)
+
+    const closing = await nextComponent(components, 3)
+    closing.handleInput?.(ESCAPE)
+    await run
     expect(await writeFile(toolCall, ctx, 'tmp/session.txt')).toBeUndefined()
 
     await reset(undefined, ctx)
 
-    select.mockReset()
-    select.mockResolvedValueOnce('No')
+    ctx.ui.select = vi.fn().mockResolvedValue('No')
     expect(await writeFile(toolCall, ctx, 'tmp/session.txt')).toMatchObject({ block: true })
   })
 })
 
 describe('legacy session editor', () => {
   it('keeps the SettingsList editor in legacy mode', async () => {
-    const { ctx, sessionPermissions } = setup({
+    const { ctx, sessionPermissions, custom, select } = setup({
       fileAccess: {
         external: { protected: {}, unprotected: {} },
         internal: { protected: {}, unprotected: {} },
@@ -190,7 +342,7 @@ describe('legacy session editor', () => {
 
     await sessionPermissions(undefined, ctx)
 
-    expect(ctx.ui.custom).toHaveBeenCalledTimes(1)
-    expect(ctx.ui.select).not.toHaveBeenCalled()
+    expect(custom).toHaveBeenCalledTimes(1)
+    expect(select).not.toHaveBeenCalled()
   })
 })

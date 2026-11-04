@@ -166,7 +166,7 @@ pi-sandbox applies deny-first precedence to writes and allow-first to reads. Loc
 
 #### Session commands (new mode)
 
-`/lockdown:session-permissions` lists the four arrays and lets you add or remove entries. Entries are validated before they are added, and edits are in-memory only. `/lockdown:reset` reloads the selected `settings.json` block (or defaults), discarding session edits. In a non-interactive session the command reports that an interactive UI is required.
+`/lockdown:session-permissions` shows the four arrays with their current entries inline (dim, single line, truncated with `...`). Choosing one opens a vertical list: move with ↑↓, press Del to flag an entry for deletion, and type in the trailing row to add one (Tab completes paths from the filesystem). Entries are validated before they are applied, and edits are in-memory only. `/lockdown:reset` reloads the selected `settings.json` block (or defaults), discarding session edits. In a non-interactive session the command reports that an interactive UI is required.
 
 ### Legacy mode (fileAccess matrix)
 
