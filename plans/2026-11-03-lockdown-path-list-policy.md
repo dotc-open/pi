@@ -6,7 +6,7 @@ The [PRD](../prd/2026-11-03-lockdown-sandbox-config-prd.md) and [RFC](../rfc/202
 
 ## Approach
 
-Keep explicit legacy and new-mode settings and dispatch rather than translating the matrix. Detect mode on raw selected settings before applying defaults; keep legacy default parsing unchanged when no new keys exist. Use a shared path evaluator for new-mode read/write decisions. For each file call, evaluate both the requested path and its resolved target (including resolution through the nearest existing parent for new files). Allow only if both are allowed; a denied write on either path blocks; otherwise prompt if either path prompts. Fail closed when resolving a symlink or parent is unsafe or impossible. This prevents `allowWrite: ["e2e/"]` from authorizing writes through an `e2e/` symlink into another region. New-mode session commands can use Pi's built-in `ctx.ui.select()`/`input()` rather than inventing a custom text editor; keep the existing SettingsList for legacy mode.
+Keep explicit legacy and new-mode settings and dispatch rather than translating the matrix. `fileAccess` carries either the legacy matrix or the four path lists; detect mode on its raw inner keys before applying defaults, and keep legacy default parsing unchanged when no path lists exist. Use a shared path evaluator for new-mode read/write decisions. For each file call, evaluate both the requested path and its resolved target (including resolution through the nearest existing parent for new files). Allow only if both are allowed; a denied write on either path blocks; otherwise prompt if either path prompts. Fail closed when resolving a symlink or parent is unsafe or impossible. This prevents `allowWrite: ["e2e/"]` from authorizing writes through an `e2e/` symlink into another region. New-mode session commands can use Pi's built-in `ctx.ui.select()`/`input()` rather than inventing a custom text editor; keep the existing SettingsList for legacy mode.
 
 ## Files to modify
 
@@ -71,7 +71,7 @@ Planned files under `packages/pi-lockdown/src/__tests__/`:
 
 ### Context
 
-The new engine already selects a mode per selected settings block (`loadSettings(ctx, true)` in `packages/pi-lockdown/src/utils.ts` prefers `lockdownSubagent` over `lockdown` and parses whichever block it finds). The repo's own `.pi/settings.json` migrated the `lockdown` block to the four arrays but left `lockdownSubagent` on the legacy matrix, so subagent runs still execute the old policy. The PRD, RFC and plan never called this out.
+The new engine already selects a mode per selected settings block (`loadSettings(ctx, true)` in `packages/pi-lockdown/src/utils.ts` prefers `lockdownSubagent` over `lockdown` and parses whichever block it finds). The repo's own `.pi/settings.json` migrated the `lockdown` block to the `fileAccess` path lists but left `lockdownSubagent` on the legacy matrix, so subagent runs still execute the old policy. The PRD, RFC and plan never called this out.
 
 ### Change
 
@@ -80,10 +80,12 @@ Replace `protectedPatterns` + `fileAccess` in the `.pi/settings.json` `lockdownS
 ```jsonc
 "lockdownSubagent": {
   // customTools/defaultTools unchanged
-  "denyRead": ["**/.env*"],
-  "allowRead": [".", "./**/.env.development"],
-  "allowWrite": [],
-  "denyWrite": ["**/.env*", "**/.git/**", ":external"]
+  "fileAccess": {
+    "denyRead": ["**/.env*"],
+    "allowRead": [".", "./**/.env.development"],
+    "allowWrite": [],
+    "denyWrite": ["**/.env*", "**/.git/**", ":external"]
+  }
 }
 ```
 
@@ -100,8 +102,8 @@ This accepts the two deviations the RFC already documents for new mode: external
 
 After **each step**, run `lint:fix`, `format:fix`, `check-types` via the `code-quality-checker` subagent and commit, including plan-file updates.
 
-- [ ] Migrate the `.pi/settings.json` `lockdownSubagent` block to the arrays above and confirm `loadSettings(ctx, true)` reports new mode with `allowWrite: []`.
-- [ ] Add the README note that `lockdownSubagent` selects its mode independently of `lockdown` and uses its own arrays/defaults.
+- [x] Migrate the `.pi/settings.json` `lockdownSubagent` block to the `fileAccess` path lists above and confirm `loadSettings(ctx, true)` reports new mode with `allowWrite: []`.
+- [x] Add the README note that `lockdownSubagent` selects its mode independently of `lockdown` and uses its own arrays/defaults.
 
 ### Verification
 

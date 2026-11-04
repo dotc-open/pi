@@ -14,8 +14,8 @@ import {
 } from './constants'
 import {
   defaultLockdownSettings,
-  FILE_SYSTEM_ACCESS_KEY,
-  LEGACY_ONLY_KEYS,
+  FILE_ACCESS_KEY,
+  LEGACY_FILE_ACCESS_MATRIX_KEYS,
   LegacyLockdownSettingsSchema,
   type LegacyModeSettings,
   lockdownLevelOptions,
@@ -65,35 +65,48 @@ function notifyIssues(ctx: ExtensionContext, issues: { path: PropertyKey[]; mess
 /**
  * Parse a selected settings block into exactly one mode.
  *
- * Mode is decided on raw key presence (before defaults) so an explicit `[]`
- * still opts in. Mixing path-policy keys with legacy keys is a hard error.
- * Returns `null` when the block is present but invalid.
+ * Both modes use the `fileAccess` key: the legacy matrix (`external`/
+ * `internal`) or the four path lists. Mode is decided on the raw inner keys
+ * before defaults. Returns `null` when the block is present but invalid.
  */
 export function parseLockdownSettings(raw: unknown, ctx: ExtensionContext): LockdownSettings | null {
   const block = (raw ?? {}) as Record<string, unknown>
-  const hasFileSystemAccess = FILE_SYSTEM_ACCESS_KEY in block
-  const legacyKeys = LEGACY_ONLY_KEYS.filter((key) => key in block)
-  const strayPathKeys = PATH_POLICY_KEYS.filter((key) => key in block)
+  const rawFileAccess = block[FILE_ACCESS_KEY]
+  const fileAccess =
+    typeof rawFileAccess === 'object' && rawFileAccess !== null ? (rawFileAccess as Record<string, unknown>) : undefined
 
-  // Top-level path arrays are the pre-wrapper shape; name them instead of
-  // falling through to a confusing legacy parse error.
+  // Path arrays at the top level are the pre-wrapper shape; name them instead
+  // of falling through to a confusing legacy parse error.
+  const strayPathKeys = PATH_POLICY_KEYS.filter((key) => key in block)
   if (strayPathKeys.length > 0) {
     ctx.ui.notify(
-      `[LOCKDOWN] Path lists must be nested under "${FILE_SYSTEM_ACCESS_KEY}" (found ${strayPathKeys.join(', ')}).`,
+      `[LOCKDOWN] Path lists must be nested under "${FILE_ACCESS_KEY}" (found ${strayPathKeys.join(', ')}).`,
       'error',
     )
     return null
   }
 
-  if (hasFileSystemAccess && legacyKeys.length > 0) {
+  const pathKeys = fileAccess ? PATH_POLICY_KEYS.filter((key) => key in fileAccess) : []
+  const matrixKeys = fileAccess ? LEGACY_FILE_ACCESS_MATRIX_KEYS.filter((key) => key in fileAccess) : []
+
+  if (pathKeys.length > 0 && matrixKeys.length > 0) {
     ctx.ui.notify(
-      `[LOCKDOWN] Cannot mix "${FILE_SYSTEM_ACCESS_KEY}" with legacy keys (${legacyKeys.join(', ')}).`,
+      `[LOCKDOWN] Cannot mix path-list keys (${pathKeys.join(', ')}) with the legacy fileAccess matrix (${matrixKeys.join(', ')}).`,
       'error',
     )
     return null
   }
 
-  if (hasFileSystemAccess) {
+  // New mode whenever `fileAccess` is present without the legacy matrix keys,
+  // so `"fileAccess": {}` opts in with every default.
+  if (fileAccess !== undefined && matrixKeys.length === 0) {
+    if ('protectedPatterns' in block) {
+      ctx.ui.notify(
+        `[LOCKDOWN] Cannot mix "${FILE_ACCESS_KEY}" path lists with the legacy "protectedPatterns" key.`,
+        'error',
+      )
+      return null
+    }
     const parsed = PathPolicySettingsSchema.safeParse(block)
     if (!parsed.success) {
       notifyIssues(ctx, parsed.error.issues)

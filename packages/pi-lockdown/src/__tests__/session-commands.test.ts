@@ -244,7 +244,7 @@ describe('list editor', () => {
 
 describe('new-mode session permissions', () => {
   it('reports that an interactive UI is required when headless', async () => {
-    const { ctx, sessionPermissions, custom } = setup({ fileSystemAccess: { allowWrite: [] } }, { hasUI: false })
+    const { ctx, sessionPermissions, custom } = setup({ fileAccess: { allowWrite: [] } }, { hasUI: false })
 
     await sessionPermissions(undefined, ctx)
 
@@ -254,10 +254,7 @@ describe('new-mode session permissions', () => {
 
   it('adds an entry to a selected list and applies it immediately', async () => {
     const { custom, components } = createCustomDriver()
-    const { ctx, sessionPermissions, toolCall } = setup(
-      { fileSystemAccess: { allowWrite: [], denyWrite: [] } },
-      { custom },
-    )
+    const { ctx, sessionPermissions, toolCall } = setup({ fileAccess: { allowWrite: [], denyWrite: [] } }, { custom })
 
     const run = sessionPermissions(undefined, ctx)
 
@@ -279,7 +276,7 @@ describe('new-mode session permissions', () => {
   it('removes an entry from a selected list', async () => {
     const { custom, components } = createCustomDriver()
     const { ctx, sessionPermissions, toolCall } = setup(
-      { fileSystemAccess: { allowWrite: ['e2e/'], denyWrite: [] } },
+      { fileAccess: { allowWrite: ['e2e/'], denyWrite: [] } },
       { custom },
     )
 
@@ -304,10 +301,7 @@ describe('new-mode session permissions', () => {
 
   it('does not save escape cancellation to the list', async () => {
     const { custom, components } = createCustomDriver()
-    const { ctx, sessionPermissions, toolCall } = setup(
-      { fileSystemAccess: { allowWrite: [], denyWrite: [] } },
-      { custom },
-    )
+    const { ctx, sessionPermissions, toolCall } = setup({ fileAccess: { allowWrite: [], denyWrite: [] } }, { custom })
 
     const run = sessionPermissions(undefined, ctx)
 
@@ -339,7 +333,7 @@ describe('lockdown:reset', () => {
   it('discards session edits by reloading the selected settings', async () => {
     const { custom, components } = createCustomDriver()
     const { ctx, sessionPermissions, toolCall, reset } = setup(
-      { fileSystemAccess: { allowWrite: ['e2e/'], denyWrite: [] } },
+      { fileAccess: { allowWrite: ['e2e/'], denyWrite: [] } },
       { custom },
     )
 
