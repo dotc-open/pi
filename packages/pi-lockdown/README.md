@@ -273,6 +273,8 @@ Resolution order for a **subagent** process: (1) project `lockdownSubagent`, (2)
 }
 ```
 
+**Updating subagent policy mid-session:** each subagent reads `settings.json` when its own process starts, so the main agent can edit the `lockdownSubagent` block right before dispatching a subagent and the new policy applies to that subagent immediately. There is no need to reload the main agent (it does not read subagent settings) and the main agent's own session policy is unaffected. This is an ordinary file edit: it happens only if the agent's current policy allows writing the settings file (otherwise it prompts or is blocked), and it persists to disk — unlike `/lockdown:session-permissions` and the `lockdown_session_permissions` tool, which are session-only and never touch `lockdownSubagent`.
+
 **Spawner contract:** when a future subagent extension spawns child `pi` processes, it must add `--lockdown-subagent` to the child's arguments — and **only** for subagent processes, never for the main agent. Example:
 
 ```ts
