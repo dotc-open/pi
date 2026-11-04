@@ -12,6 +12,11 @@ import { SUBAGENT_FLAG } from './constants'
 import { evaluateFilePath, type PathEvaluation } from './path-policy'
 import { defaultLockdownSettings, type LockdownLevel, LockdownLevelSchema } from './schema'
 import { configureNewModeSession } from './session-editor'
+import {
+  applySessionPermissions,
+  SESSION_PERMISSIONS_TOOL_NAME,
+  SessionPermissionsParams,
+} from './session-permissions-tool'
 import { constructSettingsList, isInside, isPiReadablePath, loadSettings } from './utils'
 
 type BlockResult = { block: true; reason: string }
@@ -78,9 +83,44 @@ export default function (pi: ExtensionAPI) {
 
     lockdownSettings = loadedSettings
 
-    // Set tools
+    // Set tools. The session-permissions tool is main-agent only; its level
+    // still comes from `customTools` (default `warn`, so it prompts).
     const tools = (lockdownSettings.defaultTools as string[]).concat(Object.keys(lockdownSettings.customTools))
+    if (!isSubagentProcess(pi)) tools.push(SESSION_PERMISSIONS_TOOL_NAME)
     pi.setActiveTools(Array.from(new Set(tools)))
+  })
+
+  pi.registerTool({
+    name: SESSION_PERMISSIONS_TOOL_NAME,
+    label: 'Update Session Permissions',
+    description:
+      'Temporarily add, remove, or set entries in one of the session lockdown path lists (denyRead, allowRead, allowWrite, denyWrite). Use it only when the user asks to grant or revoke access for the current session, for example after a write was blocked or prompted. Changes are in-memory only and are discarded by /lockdown:reset or a new session.',
+    promptSnippet: 'Change session-only lockdown path lists when the user asks for temporary access',
+    promptGuidelines: [
+      'Use lockdown_session_permissions to grant or revoke session access only when the user asks; the call itself is confirmed by the normal custom-tool permission.',
+      'Prefer the narrowest entry that unblocks the task (for example "e2e/" rather than "."), and say what you changed.',
+    ],
+    parameters: SessionPermissionsParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      if (isSubagentProcess(pi)) {
+        return {
+          content: [{ type: 'text', text: 'Session permissions are not available to subagents.' }],
+          details: {},
+          isError: true,
+        }
+      }
+
+      const outcome = applySessionPermissions(lockdownSettings, params)
+      if (!outcome.ok) {
+        return { content: [{ type: 'text', text: outcome.message }], details: {}, isError: true }
+      }
+
+      ctx.ui.notify(`[LOCKDOWN] ${outcome.message}`, 'info')
+      return {
+        content: [{ type: 'text', text: `${outcome.message} Changes apply to this session only.` }],
+        details: { list: outcome.list, entries: outcome.entries },
+      }
+    },
   })
 
   pi.on('tool_call', async (event, ctx) => {
