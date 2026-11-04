@@ -51,7 +51,7 @@
       "subagent": "allow"
     },
     "defaultTools": ["read", "edit", "write", "grep", "find", "ls"],
-    "fileSystemAccess": {
+    "fileAccess": {
       "denyRead": ["**/.env*"],
       "allowRead": [
         ".",
@@ -77,7 +77,7 @@
       "subagent": "block"
     },
     "defaultTools": ["read", "grep", "find", "ls"],
-    "fileSystemAccess": {
+    "fileAccess": {
       "denyRead": ["**/.env*"],
       "allowRead": [
         ".",

@@ -29,8 +29,8 @@ const legacyBlock = {
 }
 
 describe('path policy schema', () => {
-  it('applies per-array defaults when fileSystemAccess is omitted or empty', () => {
-    const parsed = PathPolicySettingsSchema.parse({ fileSystemAccess: {} })
+  it('applies per-array defaults when fileAccess is omitted or empty', () => {
+    const parsed = PathPolicySettingsSchema.parse({ fileAccess: {} })
     expect(parsed.denyRead).toEqual([...DEFAULT_PATH_POLICY.denyRead])
     expect(parsed.allowRead).toEqual([...DEFAULT_PATH_POLICY.allowRead])
     expect(parsed.allowWrite).toEqual([...DEFAULT_PATH_POLICY.allowWrite])
@@ -38,7 +38,7 @@ describe('path policy schema', () => {
   })
 
   it('lets an explicit [] disable a default per array', () => {
-    const parsed = PathPolicySettingsSchema.parse({ fileSystemAccess: { denyRead: [], allowWrite: [] } })
+    const parsed = PathPolicySettingsSchema.parse({ fileAccess: { denyRead: [], allowWrite: [] } })
     expect(parsed.denyRead).toEqual([])
     expect(parsed.allowWrite).toEqual([])
     expect(parsed.allowRead).toEqual([...DEFAULT_PATH_POLICY.allowRead])
@@ -53,10 +53,10 @@ describe('path policy schema', () => {
 })
 
 describe('mode selection on raw keys', () => {
-  it('selects new mode when fileSystemAccess is present, even as {}', () => {
+  it('selects new mode when fileAccess holds path lists, even as {}', () => {
     const { ctx } = makeCtx()
-    expect(parseLockdownSettings({ fileSystemAccess: { allowWrite: [] } }, ctx)?.mode).toBe('new')
-    expect(parseLockdownSettings({ fileSystemAccess: {} }, ctx)?.mode).toBe('new')
+    expect(parseLockdownSettings({ fileAccess: { allowWrite: [] } }, ctx)?.mode).toBe('new')
+    expect(parseLockdownSettings({ fileAccess: {} }, ctx)?.mode).toBe('new')
   })
 
   it('selects legacy mode when only legacy keys are present', () => {
@@ -64,28 +64,35 @@ describe('mode selection on raw keys', () => {
     expect(parseLockdownSettings(legacyBlock, ctx)?.mode).toBe('legacy')
   })
 
-  it('errors when a path list sits outside fileSystemAccess', () => {
+  it('errors when a path list sits outside fileAccess', () => {
     const { ctx, notify } = makeCtx()
     const result = parseLockdownSettings({ allowWrite: [] }, ctx)
     expect(result).toBeNull()
     const message = String(notify.mock.calls[0]?.[0])
-    expect(message).toContain('fileSystemAccess')
+    expect(message).toContain('fileAccess')
     expect(message).toContain('allowWrite')
   })
 
-  it('errors when fileSystemAccess and legacy keys are mixed, naming both', () => {
-    const { ctx, notify, shutdown } = makeCtx()
-    const result = parseLockdownSettings({ fileSystemAccess: {}, fileAccess: {} }, ctx)
+  it('errors when path lists and the legacy matrix are mixed inside fileAccess', () => {
+    const { ctx, notify } = makeCtx()
+    const result = parseLockdownSettings({ fileAccess: { allowWrite: [], external: {} } }, ctx)
     expect(result).toBeNull()
-    expect(shutdown).not.toHaveBeenCalled()
     const message = String(notify.mock.calls[0]?.[0])
-    expect(message).toContain('fileSystemAccess')
-    expect(message).toContain('fileAccess')
+    expect(message).toContain('allowWrite')
+    expect(message).toContain('external')
+  })
+
+  it('errors when path lists are mixed with protectedPatterns', () => {
+    const { ctx, notify } = makeCtx()
+    const result = parseLockdownSettings({ fileAccess: {}, protectedPatterns: [] }, ctx)
+    expect(result).toBeNull()
+    const message = String(notify.mock.calls[0]?.[0])
+    expect(message).toContain('protectedPatterns')
   })
 
   it('rejects invalid entries with an error notification', () => {
     const { ctx, notify } = makeCtx()
-    const result = parseLockdownSettings({ fileSystemAccess: { allowWrite: [''] } }, ctx)
+    const result = parseLockdownSettings({ fileAccess: { allowWrite: [''] } }, ctx)
     expect(result).toBeNull()
     expect(notify).toHaveBeenCalled()
   })

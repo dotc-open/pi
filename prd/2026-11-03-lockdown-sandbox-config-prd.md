@@ -10,7 +10,7 @@ The DOTC team runs agents through Pi in every repo, and Lockdown is the extensio
 
 ### Concept
 
-Add a path-list based read/write policy to Lockdown — four arrays (`denyRead`, `allowRead`, `allowWrite`, `denyWrite`) modelled on `pi-sandbox` — as a new configuration mode, replacing `protectedPatterns`. The existing `fileAccess` matrix keeps working unchanged for configs that don't adopt the new keys.
+Add a path-list based read/write policy to Lockdown — four arrays (`denyRead`, `allowRead`, `allowWrite`, `denyWrite`) modelled on `pi-sandbox`, nested under the same `fileAccess` key the legacy matrix uses — as a new configuration mode, replacing `protectedPatterns`. The existing `fileAccess` matrix keeps working unchanged for configs that don't adopt the new path lists.
 
 ### Key Components
 
@@ -18,18 +18,20 @@ Add a path-list based read/write policy to Lockdown — four arrays (`denyRead`,
 
 ```jsonc
 "lockdown": {
-  // For READS:
-  // - ANY read is prompted unless the path is in allowRead or allowWrite
-  // - denyRead is not a hard-block; it just marks regions as denied by default
-  "denyRead": ["/Users", "/home"],
-  "allowRead": [".", "~/.config", "~/.local", "Library"],
+  "fileAccess": {
+    // For READS:
+    // - ANY read is prompted unless the path is in allowRead or allowWrite
+    // - denyRead is not a hard-block; it just marks regions as denied by default
+    "denyRead": ["/Users", "/home"],
+    "allowRead": [".", "~/.config", "~/.local", "Library"],
 
-  // For WRITES:
-  // - allowWrite also grants read access to the same paths
-  // - empty ALLOW means every write is prompted
-  // - DENY takes precedence and is never prompted
-  "allowWrite": ["."],
-  "denyWrite": [".env", ".env.*", "*.pem", "*.key", ":external"]
+    // For WRITES:
+    // - allowWrite also grants read access to the same paths
+    // - empty ALLOW means every write is prompted
+    // - DENY takes precedence and is never prompted
+    "allowWrite": ["."],
+    "denyWrite": [".env", ".env.*", "*.pem", "*.key", ":external"]
+  }
 }
 ```
 
@@ -70,10 +72,12 @@ This replaces pi-sandbox's opposite read/write precedence with a single rule. Ca
 Each array has a built-in default that applies only when the user omits it; an explicit `[]` disables it.
 
 ```jsonc
-"denyRead":   ["**/.env*"],
-"allowRead":  [".", "./**/.env.development"],
-"allowWrite": [],
-"denyWrite":  ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+"fileAccess": {
+  "denyRead":   ["**/.env*"],
+  "allowRead":  [".", "./**/.env.development"],
+  "allowWrite": [],
+  "denyWrite":  ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+}
 ```
 
 Mapping to legacy defaults:
@@ -91,9 +95,9 @@ Mapping to legacy defaults:
 
 **6. Backward compatibility — mode switch**
 
-- If any of `denyRead` / `allowRead` / `allowWrite` / `denyWrite` is present, the **new engine** runs.
-- Otherwise the existing `fileAccess` matrix + `protectedPatterns` runs **exactly as today** (legacy engine).
-- Mixing new keys with legacy `fileAccess` / `protectedPatterns` is a **hard config error** that names the offending keys, rather than silently picking one model.
+- If the `fileAccess` key holds path lists (`denyRead`/`allowRead`/`allowWrite`/`denyWrite`), or is an empty object, the **new engine** runs.
+- If `fileAccess` holds the legacy matrix (`external`/`internal`), or is absent alongside `protectedPatterns`, the existing matrix + `protectedPatterns` runs **exactly as today** (legacy engine).
+- Mixing path lists with the legacy matrix inside `fileAccess`, or with `protectedPatterns`, is a **hard config error** that names the conflicting keys, rather than silently picking one model.
 
 **7. Prompts stay one-shot**
 
@@ -110,11 +114,11 @@ Mapping to legacy defaults:
 - `customTools` and `defaultTools` remain as they are, in both the `lockdown` and `lockdownSubagent` blocks.
 - `bash` remains blocked outright.
 - The `session_start` / settings-load flow and shutdown-on-invalid-config behaviour are unchanged.
-- The `lockdownSubagent` profile keeps its stricter `customTools`/`defaultTools`, but its **file-access policy uses the same mode switch as `lockdown`**: once any of the four path-list keys is present it runs the new engine with its own arrays/defaults, and only a block with none of them falls back to the legacy matrix. The profile's mode is selected independently — a new-mode `lockdown` block does not migrate a legacy `lockdownSubagent` block.
+- The `lockdownSubagent` profile keeps its stricter `customTools`/`defaultTools`, but its **file-access policy uses the same mode switch as `lockdown`**: once `fileAccess` holds path lists it runs the new engine with its own arrays/defaults, and only a legacy matrix falls back to the legacy engine. The profile's mode is selected independently — a new-mode `lockdown` block does not migrate a legacy `lockdownSubagent` block.
 
 **10. Documentation**
 
-- The README gets the new-mode reference: the four arrays, the `"."`, `":external"` and `"*"` tokens, matching rules, the most-specific-wins precedence (and how it differs from pi-sandbox), defaults, and the legacy-vs-new mode switch.
+- The README gets the new-mode reference: the four arrays under `fileAccess`, the `"."`, `":external"` and `"*"` tokens, matching rules, the most-specific-wins precedence (and how it differs from pi-sandbox), defaults, and the legacy-vs-new mode switch.
 
 ### Alternatives Considered
 
@@ -154,7 +158,7 @@ Mapping to legacy defaults:
 
 ### User Flow 1: Scoped write access for a session workflow (solo dev, config-driven)
 
-1. Dev adds `"lockdown": { "allowWrite": ["e2e/"] }` to `.pi/settings.json`.
+1. Dev adds `"lockdown": { "fileAccess": { "allowWrite": ["e2e/"] } }` to `.pi/settings.json`.
 2. Dev reloads the Pi session; Lockdown sees the new keys and selects the new engine.
 3. Agent writes `e2e/snapshot.spec.ts` → matches `allowWrite` → allowed.
 4. Agent writes `src/index.ts` → matches neither `allowWrite` nor `denyWrite` → Yes/No prompt.
@@ -184,7 +188,7 @@ Mapping to legacy defaults:
 
 1. Existing user updates the package.
 2. Their config contains only legacy `fileAccess`/`protectedPatterns` keys → the legacy engine runs → behaviour is unchanged.
-3. If they add a new key alongside legacy keys, Lockdown raises a hard error naming both, instead of silently choosing one.
+3. If they add path lists alongside the legacy matrix, Lockdown raises a hard error naming both, instead of silently choosing one.
 
 ### User Flow 6: Team lead hard-blocks external writes / secrets
 

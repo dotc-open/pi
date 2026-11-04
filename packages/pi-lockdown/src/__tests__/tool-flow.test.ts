@@ -77,7 +77,7 @@ beforeEach(() => {
 describe('new-mode file tool dispatch', () => {
   it('routes read/grep/find/ls to the read policy and edit/write to the write policy', async () => {
     const { toolCall, ctx } = load({
-      lockdown: { fileSystemAccess: { allowRead: ['docs/'], allowWrite: [], denyWrite: ['docs/'] } },
+      lockdown: { fileAccess: { allowRead: ['docs/'], allowWrite: [], denyWrite: ['docs/'] } },
     })
     const docs = path.join(state.cwd, 'docs', 'x.txt')
 
@@ -96,12 +96,12 @@ describe('new-mode file tool dispatch', () => {
   })
 
   it('still blocks bash outright', async () => {
-    const { toolCall, ctx } = load({ lockdown: { fileSystemAccess: { allowRead: ['.'] } } })
+    const { toolCall, ctx } = load({ lockdown: { fileAccess: { allowRead: ['.'] } } })
     expect(await toolCall({ toolName: 'bash', input: { command: 'rm -rf /' } }, ctx)).toMatchObject({ block: true })
   })
 
   it('blocks empty writes even when the path is allowed', async () => {
-    const { toolCall, ctx } = load({ lockdown: { fileSystemAccess: { allowWrite: ['.'] } } })
+    const { toolCall, ctx } = load({ lockdown: { fileAccess: { allowWrite: ['.'] } } })
     const result = (await toolCall(
       { toolName: 'write', input: { path: path.join(state.cwd, 'a.txt'), content: '' } },
       ctx,
@@ -114,10 +114,7 @@ describe('new-mode file tool dispatch', () => {
   })
 
   it('allows otherwise-denied reads inside the Pi package directory', async () => {
-    const { toolCall, ctx } = load(
-      { lockdown: { fileSystemAccess: { allowRead: [], denyRead: ['*'] } } },
-      { hasUI: false },
-    )
+    const { toolCall, ctx } = load({ lockdown: { fileAccess: { allowRead: [], denyRead: ['*'] } } }, { hasUI: false })
     expect(
       await toolCall({ toolName: 'read', input: { path: path.join(state.packageDir, 'README.md') } }, ctx),
     ).toBeUndefined()
@@ -126,7 +123,7 @@ describe('new-mode file tool dispatch', () => {
 
 describe('new-mode prompt outcomes', () => {
   it('prompts once and allows on Yes', async () => {
-    const { toolCall, ctx } = load({ lockdown: { fileSystemAccess: { allowWrite: [], denyWrite: [] } } })
+    const { toolCall, ctx } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
     expect(
       await toolCall({ toolName: 'write', input: { path: path.join(state.cwd, 'src', 'a'), content: 'x' } }, ctx),
     ).toBeUndefined()
@@ -134,7 +131,7 @@ describe('new-mode prompt outcomes', () => {
   })
 
   it('blocks on No with the user-blocked reason', async () => {
-    const { toolCall, ctx, select } = load({ lockdown: { fileSystemAccess: { allowWrite: [], denyWrite: [] } } })
+    const { toolCall, ctx, select } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
     select.mockResolvedValueOnce('No')
     expect(
       await toolCall({ toolName: 'write', input: { path: path.join(state.cwd, 'src', 'a'), content: 'x' } }, ctx),
@@ -142,10 +139,7 @@ describe('new-mode prompt outcomes', () => {
   })
 
   it('fails closed in headless mode', async () => {
-    const { toolCall, ctx } = load(
-      { lockdown: { fileSystemAccess: { allowWrite: [], denyWrite: [] } } },
-      { hasUI: false },
-    )
+    const { toolCall, ctx } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } }, { hasUI: false })
     const result = (await toolCall(
       { toolName: 'write', input: { path: path.join(state.cwd, 'src', 'a'), content: 'x' } },
       ctx,
@@ -158,7 +152,7 @@ describe('new-mode prompt outcomes', () => {
   })
 
   it('reports the path and winning deny rule on a write block', async () => {
-    const { toolCall, ctx } = load({ lockdown: { fileSystemAccess: { denyWrite: ['**/.env*'] } } })
+    const { toolCall, ctx } = load({ lockdown: { fileAccess: { denyWrite: ['**/.env*'] } } })
     const result = (await toolCall(
       { toolName: 'write', input: { path: path.join(state.cwd, '.env'), content: 'x' } },
       ctx,
@@ -172,7 +166,7 @@ describe('new-mode prompt outcomes', () => {
   })
 
   it('prompts (does not hard-block) on a denied read', async () => {
-    const { toolCall, ctx } = load({ lockdown: { fileSystemAccess: { denyRead: ['**/.env*'] } } })
+    const { toolCall, ctx } = load({ lockdown: { fileAccess: { denyRead: ['**/.env*'] } } })
     expect(await toolCall({ toolName: 'read', input: { path: path.join(state.cwd, '.env') } }, ctx)).toBeUndefined()
     expect(ctx.ui.select).toHaveBeenCalledTimes(1)
   })
@@ -181,14 +175,14 @@ describe('new-mode prompt outcomes', () => {
 describe('custom tools', () => {
   it('uses customTools permissions in new mode', async () => {
     const { toolCall, ctx } = load({
-      lockdown: { fileSystemAccess: { allowWrite: [], denyWrite: [] }, customTools: { danger: 'block' } },
+      lockdown: { fileAccess: { allowWrite: [], denyWrite: [] }, customTools: { danger: 'block' } },
     })
     expect(await toolCall({ toolName: 'danger', input: {} }, ctx)).toMatchObject({ block: true })
   })
 
   it('fails closed for warn custom tools in headless mode', async () => {
     const { toolCall, ctx } = load(
-      { lockdown: { fileSystemAccess: { allowWrite: [], denyWrite: [] }, customTools: { maybe: 'warn' } } },
+      { lockdown: { fileAccess: { allowWrite: [], denyWrite: [] }, customTools: { maybe: 'warn' } } },
       { hasUI: false },
     )
     expect(await toolCall({ toolName: 'maybe', input: {} }, ctx)).toMatchObject({ block: true })

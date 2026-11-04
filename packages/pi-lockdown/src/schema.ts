@@ -53,15 +53,15 @@ export const LegacyLockdownSettingsSchema = z.object({
 })
 export type LegacyLockdownSettings = z.infer<typeof LegacyLockdownSettingsSchema>
 
-// `denyRead`/`allowRead`/`allowWrite`/`denyWrite` — the path-list policy,
-// grouped under `fileSystemAccess` for parity with the legacy `fileAccess` key.
+// `denyRead`/`allowRead`/`allowWrite`/`denyWrite` — the path-list policy.
+// In new mode they live under the same `fileAccess` key the legacy matrix uses.
 export const PATH_POLICY_KEYS = ['denyRead', 'allowRead', 'allowWrite', 'denyWrite'] as const
 export type PathPolicyKey = (typeof PATH_POLICY_KEYS)[number]
-export const FILE_SYSTEM_ACCESS_KEY = 'fileSystemAccess' as const
+export const FILE_ACCESS_KEY = 'fileAccess' as const
 
-// Keys that only exist in the legacy mode. Mixing them with a path-policy key
-// is a hard config error.
-export const LEGACY_ONLY_KEYS = ['fileAccess', 'protectedPatterns'] as const
+// The legacy matrix keys. Their presence inside `fileAccess` selects legacy
+// mode; mixing them with a path-policy key is a hard config error.
+export const LEGACY_FILE_ACCESS_MATRIX_KEYS = ['external', 'internal'] as const
 
 export const DEFAULT_PATH_POLICY = {
   denyRead: ['**/.env*'],
@@ -74,7 +74,7 @@ export const PathEntrySchema = z
   .string()
   .refine((entry) => entry.trim().length > 0, { message: 'Path entry must not be empty.' })
 
-export const FileSystemAccessSchema = z.object({
+export const FileAccessPathSchema = z.object({
   denyRead: z.array(PathEntrySchema).default([...DEFAULT_PATH_POLICY.denyRead]),
   allowRead: z.array(PathEntrySchema).default([...DEFAULT_PATH_POLICY.allowRead]),
   allowWrite: z.array(PathEntrySchema).default([...DEFAULT_PATH_POLICY.allowWrite]),
@@ -86,7 +86,7 @@ export const FileSystemAccessSchema = z.object({
 export const PathPolicySettingsSchema = z
   .object({
     ...commonFields,
-    fileSystemAccess: FileSystemAccessSchema.default({
+    fileAccess: FileAccessPathSchema.default({
       denyRead: [...DEFAULT_PATH_POLICY.denyRead],
       allowRead: [...DEFAULT_PATH_POLICY.allowRead],
       allowWrite: [...DEFAULT_PATH_POLICY.allowWrite],
@@ -96,7 +96,7 @@ export const PathPolicySettingsSchema = z
   .transform((value) => ({
     defaultTools: value.defaultTools,
     customTools: value.customTools,
-    ...value.fileSystemAccess,
+    ...value.fileAccess,
   }))
 export type PathPolicySettings = z.infer<typeof PathPolicySettingsSchema>
 

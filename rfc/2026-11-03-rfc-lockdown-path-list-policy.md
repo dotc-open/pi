@@ -15,8 +15,8 @@ Lockdown currently classifies each tool call using a 16-slot `fileAccess` matrix
 
 ### Functional requirements
 
-- Support `denyRead`, `allowRead`, `allowWrite`, and `denyWrite` arrays in `lockdown` and `lockdownSubagent`; omitted arrays receive independent defaults and explicit `[]` disables each default.
-- Select new mode when **any** new array key is present, including `[]`. Reject configurations containing both a new key and `fileAccess` or `protectedPatterns`, naming the conflicting keys. Without new keys, retain the existing matrix and protected-pattern logic unchanged.
+- Support `denyRead`, `allowRead`, `allowWrite`, and `denyWrite` arrays under `fileAccess` in `lockdown` and `lockdownSubagent`; omitted arrays receive independent defaults and explicit `[]` disables each default.
+- Select new mode when `fileAccess` holds any of the new array keys, including `[]`, or is an empty object. Reject configurations mixing path lists with the legacy `fileAccess` matrix (`external`/`internal`) or `protectedPatterns`, naming the conflicting keys. Without path lists, retain the existing matrix and protected-pattern logic unchanged.
 - Resolve entries relative to the project cwd; expand `~`; support directory prefixes, file paths, segment-scoped globs, `.` (project), `:external` (outside project), and a standalone `*` (all paths). Do not introduce `:internal`.
 - Choose the most-specific matching rule separately for reads and writes: exact file > glob (more literal characters wins) > directory (longer path wins) > region-wide token; deny wins an exact tie. `allowWrite` also contributes to read allows, but `allowRead` does not grant writes.
 - Winning write deny: hard block. Winning read deny: one-shot Yes/No prompt. Winning allow: proceed. No match: one-shot prompt. Without a UI, prompt outcomes block.
@@ -35,17 +35,19 @@ Lockdown currently classifies each tool call using a 16-slot `fileAccess` matrix
 
 ### Option 1: Parallel path-list policy and legacy matrix
 
-- Extend the Zod settings schema with a new-mode branch and the four defaulted arrays. Check raw key presence **before** applying defaults, because defaults would otherwise make every config appear to opt in. Validate mixed keys as a hard error in the selected `lockdown` or `lockdownSubagent` block. Keep legacy parsing and defaults as a separate branch; do not translate legacy levels or merge policies.
+- Extend the Zod settings schema so `fileAccess` may be either the legacy matrix or the four defaulted path arrays. Check the raw inner keys **before** applying defaults, because defaults would otherwise make every config appear to opt in. Validate mixed keys as a hard error in the selected `lockdown` or `lockdownSubagent` block. Keep legacy parsing and defaults as a separate branch; do not translate legacy levels or merge policies.
 - Add a single path-policy evaluator for both read and write. Normalize a tool path against `ctx.cwd` (including Pi's supported `@` path prefix), expand `~` in rules, and classify `:external` with the existing `isInside` semantics. For write targets that do not yet exist, resolve the nearest existing ancestor for symlink checks. Treat explicit trailing-slash entries as directory prefixes, and existing directories (including `.` and `~/.config`) as prefixes; use file-exact matching otherwise. Non-existent intended directories must be written with a trailing slash. Make directory prefix matching path-segment aware.
 - Compile glob entries against the cwd and match normalized paths, with `*` confined to one path segment except for the standalone all-path token; check Node's actual `path.matchesGlob` behavior for root-level `**/` matches and absolute paths in tests. Count literal (non-metacharacter) characters to rank globs, with deny on ties. Use the same ranking for both actions; add `allowWrite` entries to the read candidates. An unmatched read/write prompts, and a winning read deny also prompts. A write deny blocks immediately with the path and matched rule in the reason.
 - Defaults for new mode (only when each field is absent):
 
   ```jsonc
   {
-    "denyRead": ["**/.env*"],
-    "allowRead": [".", "./**/.env.development"],
-    "allowWrite": [],
-    "denyWrite": ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"],
+    "fileAccess": {
+      "denyRead": ["**/.env*"],
+      "allowRead": [".", "./**/.env.development"],
+      "allowWrite": [],
+      "denyWrite": ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"],
+    },
   }
   ```
 

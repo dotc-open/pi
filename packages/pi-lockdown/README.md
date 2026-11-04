@@ -57,15 +57,15 @@ Add a `lockdown` property in your project or global `settings.json`. The order o
 
 ### Mode switch
 
-- If a `fileSystemAccess` key is present, the **new path-list policy** runs. It may be `{}` to use every default.
-- Otherwise, the **legacy** `fileAccess` matrix + `protectedPatterns` runs exactly as before.
-- Mixing `fileSystemAccess` with a legacy key (`fileAccess` or `protectedPatterns`) is a **hard config error** that names the offending keys. Path arrays placed at the top level (the old shape) are rejected with a message to nest them under `fileSystemAccess`. Lockdown will not start rather than silently guess a mode.
+- If the `fileAccess` key holds path lists (`denyRead`/`allowRead`/`allowWrite`/`denyWrite`), or is an empty object, the **new path-list policy** runs.
+- If `fileAccess` holds the legacy matrix (`external`/`internal`), or is absent alongside `protectedPatterns`, the **legacy** matrix runs exactly as before.
+- Mixing path lists with the legacy matrix inside `fileAccess`, or with `protectedPatterns`, is a **hard config error** that names the conflicting keys. Path arrays placed at the top level (the old shape) are rejected with a message to nest them under `fileAccess`. Lockdown will not start rather than silently guess a mode.
 
 ### Path-list policy (new mode)
 
 ```jsonc
 "lockdown": {
-  "fileSystemAccess": {
+  "fileAccess": {
     // For READS:
     // - ANY read is prompted unless the path is in allowRead or allowWrite
     // - denyRead is not a hard-block; it only prompts
@@ -119,7 +119,7 @@ On an exact tie, **deny wins**. The outcome then depends on the action:
 Each default applies only when its array is omitted.
 
 ```jsonc
-"fileSystemAccess": {
+"fileAccess": {
   "denyRead":   ["**/.env*"],
   "allowRead":  [".", "./**/.env.development"],
   "allowWrite": [],
@@ -136,7 +136,7 @@ Grant unattended writes under `e2e/` while everything else stays controlled:
 ```json
 {
   "lockdown": {
-    "fileSystemAccess": {
+    "fileAccess": {
       "allowWrite": ["e2e/"]
     }
   }
@@ -152,7 +152,7 @@ Make a project read-only except for one directory (a write allowlist):
 ```json
 {
   "lockdown": {
-    "fileSystemAccess": {
+    "fileAccess": {
       "denyWrite": ["*"],
       "allowWrite": ["e2e/"]
     }
@@ -178,7 +178,7 @@ pi-sandbox applies deny-first precedence to writes and allow-first to reads. Loc
 
 ### Legacy mode (fileAccess matrix)
 
-If `fileSystemAccess` is not present, the original matrix runs unchanged.
+If `fileAccess` holds the legacy matrix (`external`/`internal`), or is absent alongside `protectedPatterns`, the original matrix runs unchanged.
 
 ```json
 {
@@ -233,9 +233,9 @@ Default protected patterns:
 
 #### Migrating to the new mode
 
-1. Remove `fileAccess` and `protectedPatterns`, then add a `fileSystemAccess` object with whichever of the four arrays you need.
+1. Remove `protectedPatterns` and the `external`/`internal` matrix, then put whichever of the four arrays you need under `fileAccess`.
 2. Omitted arrays use the [new-mode defaults](#defaults); set `"allowWrite": []` explicitly if you want every write to prompt.
-3. Lockdown refuses to start if `fileSystemAccess` appears alongside `fileAccess` or `protectedPatterns`, and names the conflicting keys.
+3. Lockdown refuses to start if path lists appear alongside the `fileAccess` matrix or `protectedPatterns`, and names the conflicting keys.
 
 In legacy mode, `/lockdown:session-permissions` keeps its original editor and toggles the `fileAccess` slots (and custom-tool levels) for the session.
 
@@ -254,7 +254,7 @@ Resolution order for a **subagent** process: (1) project `lockdownSubagent`, (2)
 ```json
 {
   "lockdown": {
-    "fileSystemAccess": {
+    "fileAccess": {
       "allowWrite": ["."],
       "denyWrite": [".env", ":external"]
     }
@@ -262,7 +262,7 @@ Resolution order for a **subagent** process: (1) project `lockdownSubagent`, (2)
   "lockdownSubagent": {
     "customTools": {},
     "defaultTools": ["read", "grep", "find", "ls"],
-    "fileSystemAccess": {
+    "fileAccess": {
       "allowRead": ["."],
       "allowWrite": [],
       "denyWrite": ["*"]

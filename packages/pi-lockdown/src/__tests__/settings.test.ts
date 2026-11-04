@@ -33,8 +33,8 @@ beforeEach(() => {
 
 describe('loadSettings source order', () => {
   it('prefers the project block over the global block, without merging', () => {
-    state.project = { lockdown: { fileSystemAccess: { allowWrite: ['e2e/'] } } }
-    state.global = { lockdown: { fileSystemAccess: { allowWrite: ['global/'], denyWrite: ['.env'] } } }
+    state.project = { lockdown: { fileAccess: { allowWrite: ['e2e/'] } } }
+    state.global = { lockdown: { fileAccess: { allowWrite: ['global/'], denyWrite: ['.env'] } } }
 
     const settings = newMode(loadSettings(makeCtx().ctx))
     expect(settings.allowWrite).toEqual(['e2e/'])
@@ -43,7 +43,7 @@ describe('loadSettings source order', () => {
   })
 
   it('falls back to the global block when the project has no block', () => {
-    state.global = { lockdown: { fileSystemAccess: { allowWrite: ['global/'] } } }
+    state.global = { lockdown: { fileAccess: { allowWrite: ['global/'] } } }
     expect(newMode(loadSettings(makeCtx().ctx)).allowWrite).toEqual(['global/'])
   })
 
@@ -56,30 +56,42 @@ describe('loadSettings source order', () => {
 describe('loadSettings subagent profile', () => {
   it('prefers project lockdownSubagent over project lockdown', () => {
     state.project = {
-      lockdownSubagent: { fileSystemAccess: { allowWrite: ['subagent/'] } },
-      lockdown: { fileSystemAccess: { allowWrite: ['main/'] } },
+      lockdownSubagent: { fileAccess: { allowWrite: ['subagent/'] } },
+      lockdown: { fileAccess: { allowWrite: ['main/'] } },
     }
     expect(newMode(loadSettings(makeCtx().ctx, true)).allowWrite).toEqual(['subagent/'])
   })
 
   it('prefers global lockdownSubagent over project lockdown', () => {
-    state.project = { lockdown: { fileSystemAccess: { allowWrite: ['main/'] } } }
-    state.global = { lockdownSubagent: { fileSystemAccess: { allowWrite: ['global-subagent/'] } } }
+    state.project = { lockdown: { fileAccess: { allowWrite: ['main/'] } } }
+    state.global = { lockdownSubagent: { fileAccess: { allowWrite: ['global-subagent/'] } } }
     expect(newMode(loadSettings(makeCtx().ctx, true)).allowWrite).toEqual(['global-subagent/'])
   })
 
   it('falls back to project lockdown when no subagent profile exists', () => {
-    state.project = { lockdown: { fileSystemAccess: { allowWrite: ['main/'] } } }
-    state.global = { lockdown: { fileSystemAccess: { allowWrite: ['global/'] } } }
+    state.project = { lockdown: { fileAccess: { allowWrite: ['main/'] } } }
+    state.global = { lockdown: { fileAccess: { allowWrite: ['global/'] } } }
     expect(newMode(loadSettings(makeCtx().ctx, true)).allowWrite).toEqual(['main/'])
   })
 })
 
 describe('loadSettings invalid config', () => {
   it('returns null and shuts down on an invalid selected block', () => {
-    state.project = { lockdown: { fileSystemAccess: { allowWrite: [''] } } }
+    state.project = { lockdown: { fileAccess: { allowWrite: [''] } } }
     const { ctx, shutdown } = makeCtx()
     expect(loadSettings(ctx)).toBeNull()
     expect(shutdown).toHaveBeenCalled()
+  })
+
+  it('leaves a legacy matrix block in legacy mode', () => {
+    state.project = {
+      lockdown: {
+        fileAccess: {
+          external: { protected: {}, unprotected: {} },
+          internal: { protected: {}, unprotected: {} },
+        },
+      },
+    }
+    expect(loadSettings(makeCtx().ctx)?.mode).toBe('legacy')
   })
 })
