@@ -174,7 +174,7 @@ describe('list chooser', () => {
 })
 
 describe('list editor', () => {
-  it('flags an entry for deletion and returns it on escape', () => {
+  it('flags an entry for deletion and saves on empty enter', () => {
     const done = vi.fn()
     const editor = createListEditor('allowWrite', ['e2e/'], state.cwd, fakeTheme(), { requestRender: vi.fn() }, done)
 
@@ -182,17 +182,28 @@ describe('list editor', () => {
     editor.handleInput?.(DELETE)
     expect(done).not.toHaveBeenCalled()
 
-    editor.handleInput?.(ESCAPE)
+    editor.handleInput?.(ENTER)
     expect(done).toHaveBeenCalledWith({ added: [], removed: ['e2e/'] })
   })
 
-  it('adds free text from the trailing row', () => {
+  it('returns undefined on escape without saving', () => {
+    const done = vi.fn()
+    const editor = createListEditor('allowWrite', ['e2e/'], state.cwd, fakeTheme(), { requestRender: vi.fn() }, done)
+
+    editor.handleInput?.(UP)
+    editor.handleInput?.(DELETE)
+    editor.handleInput?.(ESCAPE)
+
+    expect(done).toHaveBeenCalledWith(undefined)
+  })
+
+  it('adds free text then saves on empty enter', () => {
     const done = vi.fn()
     const editor = createListEditor('allowWrite', [], state.cwd, fakeTheme(), { requestRender: vi.fn() }, done)
 
     for (const character of 'tmp/') editor.handleInput?.(character)
     editor.handleInput?.(ENTER)
-    editor.handleInput?.(ESCAPE)
+    editor.handleInput?.(ENTER)
 
     expect(done).toHaveBeenCalledWith({ added: ['tmp/'], removed: [] })
   })
@@ -207,9 +218,19 @@ describe('list editor', () => {
     await tick()
     editor.handleInput?.(TAB)
     editor.handleInput?.(ENTER)
-    editor.handleInput?.(ESCAPE)
+    editor.handleInput?.(ENTER)
 
     expect(done).toHaveBeenCalledWith({ added: ['e2e/'], removed: [] })
+  })
+
+  it('windows long lists and shows the scroll position', () => {
+    const entries = Array.from({ length: 20 }, (_, i) => `dir${i}/`)
+    const editor = createListEditor('allowWrite', entries, state.cwd, fakeTheme(), { requestRender: vi.fn() }, vi.fn())
+
+    const rendered = editor.render(60).join('\n')
+    expect(rendered).not.toContain('dir0/')
+    expect(rendered).toContain('dir19/')
+    expect(rendered).toContain('(21/21)')
   })
 })
 
@@ -237,10 +258,7 @@ describe('new-mode session permissions', () => {
     const editor = await nextComponent(components, 2)
     for (const character of 'e2e/') editor.handleInput?.(character)
     editor.handleInput?.(ENTER)
-    editor.handleInput?.(ESCAPE)
-
-    const closing = await nextComponent(components, 3)
-    closing.handleInput?.(ESCAPE)
+    editor.handleInput?.(ENTER)
     await run
 
     expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining('Added "e2e/"'), 'info')
@@ -261,10 +279,7 @@ describe('new-mode session permissions', () => {
     const editor = await nextComponent(components, 2)
     editor.handleInput?.(UP)
     editor.handleInput?.(DELETE)
-    editor.handleInput?.(ESCAPE)
-
-    const closing = await nextComponent(components, 3)
-    closing.handleInput?.(ESCAPE)
+    editor.handleInput?.(ENTER)
     await run
 
     expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining('Removed "e2e/"'), 'info')
@@ -273,7 +288,7 @@ describe('new-mode session permissions', () => {
     expect(await writeFile(toolCall, ctx, 'e2e/snapshot.txt')).toMatchObject({ block: true })
   })
 
-  it('rejects an invalid entry before mutating the list', async () => {
+  it('does not save escape cancellation to the list', async () => {
     const { custom, components } = createCustomDriver()
     const { ctx, sessionPermissions, toolCall } = setup({ allowWrite: [], denyWrite: [] }, { custom })
 
@@ -285,7 +300,7 @@ describe('new-mode session permissions', () => {
     chooser.handleInput?.(ENTER)
 
     const editor = await nextComponent(components, 2)
-    editor.handleInput?.(' ')
+    for (const character of 'tmp/') editor.handleInput?.(character)
     editor.handleInput?.(ENTER)
     editor.handleInput?.(ESCAPE)
 
@@ -296,7 +311,7 @@ describe('new-mode session permissions', () => {
     expect(ctx.ui.notify).not.toHaveBeenCalledWith(expect.stringContaining('Added'), 'info')
 
     ctx.ui.select = vi.fn().mockResolvedValue('No')
-    expect(await writeFile(toolCall, ctx, 'e2e/snapshot.txt')).toMatchObject({
+    expect(await writeFile(toolCall, ctx, 'tmp/session.txt')).toMatchObject({
       block: true,
       reason: '[LOCKDOWN] Action blocked by user.',
     })
@@ -317,10 +332,7 @@ describe('lockdown:reset', () => {
     const editor = await nextComponent(components, 2)
     for (const character of 'tmp/') editor.handleInput?.(character)
     editor.handleInput?.(ENTER)
-    editor.handleInput?.(ESCAPE)
-
-    const closing = await nextComponent(components, 3)
-    closing.handleInput?.(ESCAPE)
+    editor.handleInput?.(ENTER)
     await run
     expect(await writeFile(toolCall, ctx, 'tmp/session.txt')).toBeUndefined()
 
