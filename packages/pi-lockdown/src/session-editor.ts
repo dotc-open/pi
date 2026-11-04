@@ -249,8 +249,14 @@ export function createListEditor(
       }
 
       if (error) lines.push(theme.fg('error', error))
+      const hasText = input.getValue().trim().length > 0
       lines.push('')
-      lines.push(theme.fg('dim', '↑↓ navigate • Del flag • Enter add/save • Esc discard'))
+      lines.push(
+        theme.fg(
+          'dim',
+          `↑↓ navigate • Del flag • Enter ${hasText ? 'add' : 'save'} • Esc ${hasText ? 'discard' : 'exit'}`,
+        ),
+      )
       cached = lines
       return lines
     },
@@ -320,6 +326,7 @@ export function createListEditor(
 
       input.handleInput(data)
       error = undefined
+      refresh()
       void refreshSuggestions()
     },
   }
