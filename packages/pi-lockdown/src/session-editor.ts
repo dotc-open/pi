@@ -13,6 +13,7 @@ import {
 import { PATH_POLICY_KEYS, PathEntrySchema, type PathPolicyKey, type PathPolicySettings } from './schema'
 
 const MAX_SUGGESTIONS = 8
+const MAX_VISIBLE_ROWS = 10
 const END_KEY = '\x1b[F'
 
 /** Minimal surface the components need from the TUI. */
@@ -115,7 +116,7 @@ export function createListEditor(
   cwd: string,
   theme: Theme,
   host: RenderHost,
-  done: (result: ListEditResult) => void,
+  done: (result: ListEditResult | undefined) => void,
 ): Component {
   const rows: EntryRow[] = entries.map((value) => ({ value, deleted: false }))
   const input = new Input()
@@ -212,24 +213,35 @@ export function createListEditor(
         theme.fg('dim', 'Del flags an entry for deletion. The last row adds a new entry.'),
         '',
       ]
-      rows.forEach((row, i) => {
-        const selected = i === index
-        const prefix = selected ? theme.fg('accent', '→ ') : '  '
-        const value = row.deleted
-          ? theme.strikethrough(theme.fg('error', row.value))
-          : theme.fg(selected ? 'accent' : 'text', row.value)
-        const flag = row.deleted ? theme.fg('error', ' [delete]') : ''
-        lines.push(truncateToWidth(`${prefix}${value}${flag}`, width, ''))
-      })
+      const totalRows = rows.length + 1
+      const start = Math.max(0, Math.min(index - Math.floor(MAX_VISIBLE_ROWS / 2), totalRows - MAX_VISIBLE_ROWS))
+      const end = Math.min(start + MAX_VISIBLE_ROWS, totalRows)
+      for (let i = start; i < end; i += 1) {
+        if (i < rows.length) {
+          const row = rows[i]
+          if (!row) continue
+          const selected = i === index
+          const prefix = selected ? theme.fg('accent', '→ ') : '  '
+          const value = row.deleted
+            ? theme.strikethrough(theme.fg('error', row.value))
+            : theme.fg(selected ? 'accent' : 'text', row.value)
+          const flag = row.deleted ? theme.fg('error', ' [delete]') : ''
+          lines.push(truncateToWidth(`${prefix}${value}${flag}`, width, ''))
+          continue
+        }
+        const inputSelected = i === index
+        const inputPrefix = inputSelected ? theme.fg('accent', '→ ') : '  '
+        // Input renders a hardcoded "> " prompt; drop it so the row uses our own prefix.
+        const rendered = input.render(Math.max(1, width - visibleWidth(inputPrefix) + 2))[0] ?? ''
+        const inputLine = rendered.startsWith('> ') ? rendered.slice(2) : rendered
+        lines.push(truncateToWidth(`${inputPrefix}${inputLine}`, width, ''))
+      }
 
-      const inputSelected = index === rows.length
-      const inputPrefix = inputSelected ? theme.fg('accent', '→ ') : '  '
-      // Input renders a hardcoded "> " prompt; drop it so the row uses our own prefix.
-      const rendered = input.render(Math.max(1, width - visibleWidth(inputPrefix) + 2))[0] ?? ''
-      const inputLine = rendered.startsWith('> ') ? rendered.slice(2) : rendered
-      lines.push(truncateToWidth(`${inputPrefix}${inputLine}`, width, ''))
+      if (start > 0 || end < totalRows) {
+        lines.push(theme.fg('dim', `  (${index + 1}/${totalRows})`))
+      }
 
-      if (inputSelected && suggestions.length > 0) {
+      if (index === rows.length && suggestions.length > 0) {
         suggestions.slice(0, MAX_SUGGESTIONS).forEach((item, i) => {
           const selected = i === suggestionIndex
           lines.push(truncateToWidth(`  ${theme.fg(selected ? 'accent' : 'dim', item.label)}`, width, ''))
@@ -238,7 +250,7 @@ export function createListEditor(
 
       if (error) lines.push(theme.fg('error', error))
       lines.push('')
-      lines.push(theme.fg('dim', '↑↓ navigate • Tab complete • Enter add • Del flag • Esc done'))
+      lines.push(theme.fg('dim', '↑↓ navigate • Del flag • Enter add/save • Esc discard'))
       cached = lines
       return lines
     },
@@ -249,7 +261,7 @@ export function createListEditor(
           refresh()
           return
         }
-        done(result())
+        done(undefined)
         return
       }
 
@@ -283,6 +295,15 @@ export function createListEditor(
         return
       }
 
+      if (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) {
+        if (input.getValue().trim().length === 0) {
+          done(result())
+          return
+        }
+        commitInput()
+        return
+      }
+
       if (index < rows.length) {
         if (matchesKey(data, Key.delete) || matchesKey(data, Key.backspace)) {
           const row = rows[index]
@@ -292,10 +313,6 @@ export function createListEditor(
         return
       }
 
-      if (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) {
-        commitInput()
-        return
-      }
       if (matchesKey(data, Key.tab)) {
         applySuggestion()
         return
@@ -323,9 +340,11 @@ export async function configureNewModeSession(ctx: ExtensionContext, settings: P
     )
     if (key === undefined) return
 
-    const result = await ctx.ui.custom<ListEditResult>((tui, theme, _kb, done) =>
+    const result = await ctx.ui.custom<ListEditResult | undefined>((tui, theme, _kb, done) =>
       createListEditor(key, settings[key], ctx.cwd, theme, tui, done),
     )
+    // Esc returns to the menu without saving; a save is final and closes the command.
+    if (result === undefined) continue
     settings[key] = applyListEdits(settings[key], result)
 
     if (result.added.length > 0) {
@@ -334,5 +353,6 @@ export async function configureNewModeSession(ctx: ExtensionContext, settings: P
     if (result.removed.length > 0) {
       ctx.ui.notify(`[LOCKDOWN] Removed ${result.removed.map((entry) => `"${entry}"`).join(', ')} from ${key}.`, 'info')
     }
+    return
   }
 }
