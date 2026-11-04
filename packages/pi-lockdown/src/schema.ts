@@ -53,9 +53,11 @@ export const LegacyLockdownSettingsSchema = z.object({
 })
 export type LegacyLockdownSettings = z.infer<typeof LegacyLockdownSettingsSchema>
 
-// `denyRead`/`allowRead`/`allowWrite`/`denyWrite` — the path-list policy.
+// `denyRead`/`allowRead`/`allowWrite`/`denyWrite` — the path-list policy,
+// grouped under `fileSystemAccess` for parity with the legacy `fileAccess` key.
 export const PATH_POLICY_KEYS = ['denyRead', 'allowRead', 'allowWrite', 'denyWrite'] as const
 export type PathPolicyKey = (typeof PATH_POLICY_KEYS)[number]
+export const FILE_SYSTEM_ACCESS_KEY = 'fileSystemAccess' as const
 
 // Keys that only exist in the legacy mode. Mixing them with a path-policy key
 // is a hard config error.
@@ -72,13 +74,30 @@ export const PathEntrySchema = z
   .string()
   .refine((entry) => entry.trim().length > 0, { message: 'Path entry must not be empty.' })
 
-export const PathPolicySettingsSchema = z.object({
-  ...commonFields,
+export const FileSystemAccessSchema = z.object({
   denyRead: z.array(PathEntrySchema).default([...DEFAULT_PATH_POLICY.denyRead]),
   allowRead: z.array(PathEntrySchema).default([...DEFAULT_PATH_POLICY.allowRead]),
   allowWrite: z.array(PathEntrySchema).default([...DEFAULT_PATH_POLICY.allowWrite]),
   denyWrite: z.array(PathEntrySchema).default([...DEFAULT_PATH_POLICY.denyWrite]),
 })
+
+// Nested config, flat internal shape: the evaluator and session editor always
+// read the four arrays from the top level.
+export const PathPolicySettingsSchema = z
+  .object({
+    ...commonFields,
+    fileSystemAccess: FileSystemAccessSchema.default({
+      denyRead: [...DEFAULT_PATH_POLICY.denyRead],
+      allowRead: [...DEFAULT_PATH_POLICY.allowRead],
+      allowWrite: [...DEFAULT_PATH_POLICY.allowWrite],
+      denyWrite: [...DEFAULT_PATH_POLICY.denyWrite],
+    }),
+  })
+  .transform((value) => ({
+    defaultTools: value.defaultTools,
+    customTools: value.customTools,
+    ...value.fileSystemAccess,
+  }))
 export type PathPolicySettings = z.infer<typeof PathPolicySettingsSchema>
 
 export type LockdownMode = 'legacy' | 'new'
