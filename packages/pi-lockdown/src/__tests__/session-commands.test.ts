@@ -223,6 +223,14 @@ describe('list editor', () => {
     expect(done).toHaveBeenCalledWith({ added: ['e2e/'], removed: [] })
   })
 
+  it('switches the hint between save/exit and add/discard', () => {
+    const editor = createListEditor('allowWrite', [], state.cwd, fakeTheme(), { requestRender: vi.fn() }, vi.fn())
+
+    expect(editor.render(80).join('\n')).toContain('Enter save • Esc exit')
+    editor.handleInput?.('e')
+    expect(editor.render(80).join('\n')).toContain('Enter add • Esc discard')
+  })
+
   it('windows long lists and shows the scroll position', () => {
     const entries = Array.from({ length: 20 }, (_, i) => `dir${i}/`)
     const editor = createListEditor('allowWrite', entries, state.cwd, fakeTheme(), { requestRender: vi.fn() }, vi.fn())
