@@ -12,6 +12,9 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "test": {
+      "inputs": ["$TURBO_DEFAULT$"]
+    },
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["src/**/*", "tsconfig*.json"],

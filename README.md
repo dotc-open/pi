@@ -9,6 +9,7 @@ A repository for DOTC's Pi packages.
 | [`@dotc/pi-core`](packages/pi-core)                                 | A collection of core extensions and tools for the Pi coding agent, including subagent delegation, Git workflows, and utility tools. |
 | [`@dotc/pi-platform-ai-provider`](packages/pi-platform-ai-provider) | Integrates Platform AI with Pi as a provider and adds LiteLLM session tracking headers.                                             |
 | [`@dotc/pi-chakra-v2-docs`](packages/pi-chakra-v2-docs)             | Offline Chakra UI v2 documentation.                                                                                                 |
+| [`@dotc/pi-lockdown`](packages/pi-lockdown)                         | An opinionated extension that adds security constraints to agent tool usage.                                                        |
 
 ## Release Steps
 
