@@ -17,6 +17,7 @@ import {
   SESSION_PERMISSIONS_TOOL_NAME,
   SessionPermissionsParams,
 } from './session-permissions-tool'
+import { isScopedToolKey, resolveToolLevel } from './tool-level'
 import { constructSettingsList, isInside, isPiReadablePath, loadSettings } from './utils'
 
 type BlockResult = { block: true; reason: string }
@@ -85,7 +86,9 @@ export default function (pi: ExtensionAPI) {
 
     // Set tools. The session-permissions tool is main-agent only; its level
     // still comes from `customTools` (default `warn`, so it prompts).
-    const tools = (lockdownSettings.defaultTools as string[]).concat(Object.keys(lockdownSettings.customTools))
+    const tools = (lockdownSettings.defaultTools as string[]).concat(
+      Object.keys(lockdownSettings.customTools).filter((name) => !isScopedToolKey(name)),
+    )
     if (!isSubagentProcess(pi)) tools.push(SESSION_PERMISSIONS_TOOL_NAME)
     pi.setActiveTools(Array.from(new Set(tools)))
   })
@@ -197,8 +200,8 @@ export default function (pi: ExtensionAPI) {
       const protection: 'protected' | 'unprotected' = isProtected ? 'protected' : 'unprotected'
       permission = lockdownSettings.fileAccess[location][protection][permAction]
     } else {
-      // Custom tools: Default to warn
-      permission = lockdownSettings.customTools[event.toolName] ?? 'warn'
+      // Custom tools: Default to warn; `subagent:<name>` overrides `subagent`.
+      permission = resolveToolLevel(lockdownSettings.customTools, event.toolName, event.input)
     }
 
     switch (permission) {

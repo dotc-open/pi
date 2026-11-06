@@ -331,6 +331,59 @@ describe('custom tools', () => {
   })
 })
 
+describe('subagent tool levels', () => {
+  const fileAccess = { allowWrite: [], denyWrite: [] }
+
+  it('lets subagent:<name> override the generic subagent level', async () => {
+    const { toolCall, ctx } = load({
+      lockdown: { fileAccess, customTools: { subagent: 'block', 'subagent:scout': 'allow' } },
+    })
+
+    expect(await toolCall({ toolName: 'subagent', input: { agent: 'scout', task: 'x' } }, ctx)).toBeUndefined()
+    expect(await toolCall({ toolName: 'subagent', input: { agent: 'other', task: 'x' } }, ctx)).toMatchObject({
+      block: true,
+    })
+  })
+
+  it('falls back to the generic subagent level for unnamed agents', async () => {
+    const { toolCall, ctx, select } = load({
+      lockdown: { fileAccess, customTools: { subagent: 'warn', 'subagent:scout': 'allow' } },
+    })
+
+    expect(await toolCall({ toolName: 'subagent', input: { agent: 'other', task: 'x' } }, ctx)).toBeUndefined()
+    expect(select).toHaveBeenCalledTimes(1)
+  })
+
+  it('takes the strictest level across a multi-agent call', async () => {
+    const { toolCall, ctx } = load({
+      lockdown: { fileAccess, customTools: { subagent: 'allow', 'subagent:blocked': 'block' } },
+    })
+
+    const parallel = {
+      tasks: [
+        { agent: 'ok', task: 'a' },
+        { agent: 'blocked', task: 'b' },
+      ],
+    }
+    expect(await toolCall({ toolName: 'subagent', input: parallel }, ctx)).toMatchObject({ block: true })
+
+    const chain = {
+      chain: [
+        { agent: 'blocked', task: 'a' },
+        { agent: 'ok', task: 'b' },
+      ],
+    }
+    expect(await toolCall({ toolName: 'subagent', input: chain }, ctx)).toMatchObject({ block: true })
+  })
+
+  it('does not treat scoped keys as tool names', () => {
+    const { pi } = load({ lockdown: { fileAccess, customTools: { 'subagent:scout': 'allow' } } })
+
+    const activated = (pi.setActiveTools as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as string[]
+    expect(activated).not.toContain('subagent:scout')
+  })
+})
+
 describe('legacy mode regression', () => {
   const legacy = {
     fileAccess: {

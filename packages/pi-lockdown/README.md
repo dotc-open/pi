@@ -55,6 +55,8 @@ Add a `lockdown` property in your project or global `settings.json`. The order o
 - `defaultTools` overrides which built-in tools Lockdown activates.
 - `customTools` maps tool names to `<allow|warn|block>`. Add permissions for all custom tools and tools from other extensions here, or Lockdown defaults them to `warn`.
 
+For the `subagent` tool, a key of the form `subagent:<agent>` scopes a level to one agent and overrides the generic `subagent` level. A call that names several agents takes the strictest of their levels, so one blocked agent blocks the whole call. Scoped keys are not activated as tools.
+
 ### Mode switch
 
 - If the `fileAccess` key holds path lists (`denyRead`/`allowRead`/`allowWrite`/`denyWrite`), or is an empty object, the **new path-list policy** runs.
