@@ -1,20 +1,36 @@
-import type { ExtensionContext, Theme } from '@earendil-works/pi-coding-agent'
+import { type ExtensionContext, getSettingsListTheme, type Theme } from '@earendil-works/pi-coding-agent'
 import {
   type AutocompleteItem,
+  Box,
   CombinedAutocompleteProvider,
   type Component,
+  Container,
   Input,
   Key,
   matchesKey,
+  type SettingItem,
+  SettingsList,
+  Text,
   truncateToWidth,
   visibleWidth,
 } from '@earendil-works/pi-tui'
 
-import { PATH_POLICY_KEYS, PathEntrySchema, type PathPolicyKey, type PathPolicySettings } from './schema'
+import {
+  lockdownLevelOptions,
+  LockdownLevelSchema,
+  PATH_POLICY_KEYS,
+  PathEntrySchema,
+  type PathPolicyKey,
+  type PathPolicySettings,
+} from './schema'
 
 const MAX_SUGGESTIONS = 8
 const MAX_VISIBLE_ROWS = 10
 const END_KEY = '\x1b[F'
+
+/** A row in the new-mode chooser: one of the path lists, or the tool-permission editor. */
+export type SessionMenuChoice = PathPolicyKey | 'toolPermissions'
+const TOOL_PERMISSIONS_CHOICE = 'toolPermissions' as const
 
 /** Minimal surface the components need from the TUI. */
 interface RenderHost {
@@ -36,13 +52,14 @@ export function applyListEdits(entries: readonly string[], result: ListEditResul
   return next
 }
 
-/** First screen: pick one of the four lists, showing its entries inline. */
+/** First screen: pick one of the four lists or the tool-permission editor, showing entries inline. */
 export function createListChooser(
   settings: PathPolicySettings,
   theme: Theme,
   host: RenderHost,
-  done: (key: PathPolicyKey | undefined) => void,
+  done: (choice: SessionMenuChoice | undefined) => void,
 ): Component {
+  const choices: SessionMenuChoice[] = [...PATH_POLICY_KEYS, TOOL_PERMISSIONS_CHOICE]
   let index = 0
   let cached: string[] | undefined
 
@@ -62,18 +79,22 @@ export function createListChooser(
         theme.fg('dim', 'Choose a list to edit.'),
         '',
       ]
-      PATH_POLICY_KEYS.forEach((key, i) => {
-        const selected = i === index
+      const renderRow = (label: string, detail: string, selected: boolean) => {
         const prefix = selected ? '→ ' : '  '
-        const label = `${key} (${settings[key].length})`
         let line = prefix + theme.fg(selected ? 'accent' : 'text', label)
-        const detail = settings[key].join(', ')
         const detailWidth = width - visibleWidth(prefix) - visibleWidth(label) - 2
         if (detail && detailWidth > 4) {
           line += `  ${theme.fg('dim', truncateToWidth(detail, detailWidth, '...'))}`
         }
-        lines.push(truncateToWidth(line, width, ''))
+        return truncateToWidth(line, width, '')
+      }
+      PATH_POLICY_KEYS.forEach((key, i) => {
+        lines.push(renderRow(`${key} (${settings[key].length})`, settings[key].join(', '), i === index))
       })
+      const toolNames = Object.keys(settings.customTools)
+      lines.push(
+        renderRow(`toolPermissions (${toolNames.length})`, toolNames.join(', '), index === PATH_POLICY_KEYS.length),
+      )
       lines.push('')
       lines.push(theme.fg('dim', '↑↓ choose • Enter edit • Esc close'))
       cached = lines
@@ -81,23 +102,63 @@ export function createListChooser(
     },
     handleInput(data) {
       if (matchesKey(data, Key.up)) {
-        index = (index - 1 + PATH_POLICY_KEYS.length) % PATH_POLICY_KEYS.length
+        index = (index - 1 + choices.length) % choices.length
         refresh()
         return
       }
       if (matchesKey(data, Key.down)) {
-        index = (index + 1) % PATH_POLICY_KEYS.length
+        index = (index + 1) % choices.length
         refresh()
         return
       }
       if (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) {
-        done(PATH_POLICY_KEYS[index])
+        done(choices[index])
         return
       }
       if (matchesKey(data, Key.escape)) {
         done(undefined)
       }
     },
+  }
+}
+
+/** Tool-permission screen: cycle a custom tool between allow, warn and block for the session. */
+export function createToolPermissionsEditor(
+  settings: PathPolicySettings,
+  theme: Theme,
+  host: RenderHost,
+  done: () => void,
+): Component {
+  const items: SettingItem[] = Object.entries(settings.customTools).map(([name, level]) => ({
+    id: name,
+    label: name,
+    currentValue: level,
+    values: [...lockdownLevelOptions],
+  }))
+
+  const container = new Container()
+  const titleBox = new Box(0, 1)
+  titleBox.addChild(new Text(theme.fg('accent', theme.bold('[LOCKDOWN] Tool permissions')), 0, 0))
+  titleBox.addChild(new Text(theme.fg('dim', 'Choose a custom tool level for the session.'), 0, 0))
+  container.addChild(titleBox)
+
+  const list = new SettingsList(
+    items,
+    Math.min(items.length + 2, 15),
+    getSettingsListTheme(),
+    (id, newValue) => {
+      settings.customTools[id] = LockdownLevelSchema.parse(newValue)
+      host.requestRender()
+    },
+    () => done(),
+    { enableSearch: true },
+  )
+  container.addChild(list)
+
+  return {
+    invalidate: () => container.invalidate(),
+    render: (width) => container.render(width),
+    handleInput: (data) => list.handleInput?.(data),
   }
 }
 
@@ -342,23 +403,34 @@ export async function configureNewModeSession(ctx: ExtensionContext, settings: P
   }
 
   while (true) {
-    const key = await ctx.ui.custom<PathPolicyKey | undefined>((tui, theme, _kb, done) =>
+    const choice = await ctx.ui.custom<SessionMenuChoice | undefined>((tui, theme, _kb, done) =>
       createListChooser(settings, theme, tui, done),
     )
-    if (key === undefined) return
+    if (choice === undefined) return
+
+    // Tool levels apply as they are cycled, so closing the editor returns to the menu.
+    if (choice === TOOL_PERMISSIONS_CHOICE) {
+      await ctx.ui.custom<undefined>((tui, theme, _kb, done) =>
+        createToolPermissionsEditor(settings, theme, tui, () => done(undefined)),
+      )
+      continue
+    }
 
     const result = await ctx.ui.custom<ListEditResult | undefined>((tui, theme, _kb, done) =>
-      createListEditor(key, settings[key], ctx.cwd, theme, tui, done),
+      createListEditor(choice, settings[choice], ctx.cwd, theme, tui, done),
     )
     // Esc returns to the menu without saving; a save is final and closes the command.
     if (result === undefined) continue
-    settings[key] = applyListEdits(settings[key], result)
+    settings[choice] = applyListEdits(settings[choice], result)
 
     if (result.added.length > 0) {
-      ctx.ui.notify(`[LOCKDOWN] Added ${result.added.map((entry) => `"${entry}"`).join(', ')} to ${key}.`, 'info')
+      ctx.ui.notify(`[LOCKDOWN] Added ${result.added.map((entry) => `"${entry}"`).join(', ')} to ${choice}.`, 'info')
     }
     if (result.removed.length > 0) {
-      ctx.ui.notify(`[LOCKDOWN] Removed ${result.removed.map((entry) => `"${entry}"`).join(', ')} from ${key}.`, 'info')
+      ctx.ui.notify(
+        `[LOCKDOWN] Removed ${result.removed.map((entry) => `"${entry}"`).join(', ')} from ${choice}.`,
+        'info',
+      )
     }
     return
   }

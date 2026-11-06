@@ -274,6 +274,32 @@ describe('new-mode session permissions', () => {
     expect(await writeFile(toolCall, ctx, 'e2e/snapshot.txt')).toBeUndefined()
   })
 
+  it('opens the tool-permission editor and applies a level change', async () => {
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall } = setup(
+      { fileAccess: { allowWrite: [], denyWrite: [] }, customTools: { my_tool: 'warn' } },
+      { custom },
+    )
+
+    const run = sessionPermissions(undefined, ctx)
+
+    const chooser = await nextComponent(components, 1)
+    // The tool-permission row is the fifth row, after the four path lists.
+    for (let i = 0; i < 4; i += 1) chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    editor.handleInput?.(ENTER) // warn -> block
+    editor.handleInput?.(ESCAPE)
+
+    // Esc returns to the chooser; close it.
+    const closing = await nextComponent(components, 3)
+    closing.handleInput?.(ESCAPE)
+    await run
+
+    expect(await toolCall({ toolName: 'my_tool', input: {} }, ctx)).toMatchObject({ block: true })
+  })
+
   it('removes an entry from a selected list', async () => {
     const { custom, components } = createCustomDriver()
     const { ctx, sessionPermissions, toolCall } = setup(
