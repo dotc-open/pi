@@ -1,21 +1,17 @@
-import { type ExtensionContext, getSettingsListTheme, type Theme } from '@earendil-works/pi-coding-agent'
+import { type ExtensionContext, type Theme } from '@earendil-works/pi-coding-agent'
 import {
   type AutocompleteItem,
-  Box,
   CombinedAutocompleteProvider,
   type Component,
-  Container,
   Input,
   Key,
   matchesKey,
-  type SettingItem,
-  SettingsList,
-  Text,
   truncateToWidth,
   visibleWidth,
 } from '@earendil-works/pi-tui'
 
 import {
+  type LockdownLevel,
   lockdownLevelOptions,
   LockdownLevelSchema,
   PATH_POLICY_KEYS,
@@ -122,44 +118,136 @@ export function createListChooser(
   }
 }
 
-/** Tool-permission screen: cycle a custom tool between allow, warn and block for the session. */
+interface ToolRow {
+  name: string
+  level: LockdownLevel
+}
+
+/**
+ * Tool-permission screen: vertical list of custom tools with a trailing
+ * free-text row that adds a new tool at `block` level. Space cycles the level
+ * of the selected tool; Enter adds the typed name, or saves when empty.
+ */
 export function createToolPermissionsEditor(
   settings: PathPolicySettings,
   theme: Theme,
   host: RenderHost,
-  done: () => void,
+  done: (result: Record<string, LockdownLevel> | undefined) => void,
 ): Component {
-  const items: SettingItem[] = Object.entries(settings.customTools).map(([name, level]) => ({
-    id: name,
-    label: name,
-    currentValue: level,
-    values: [...lockdownLevelOptions],
-  }))
+  const rows: ToolRow[] = Object.entries(settings.customTools).map(([name, level]) => ({ name, level }))
+  const input = new Input()
 
-  const container = new Container()
-  const titleBox = new Box(0, 1)
-  titleBox.addChild(new Text(theme.fg('accent', theme.bold('[LOCKDOWN] Tool permissions')), 0, 0))
-  titleBox.addChild(new Text(theme.fg('dim', 'Choose a custom tool level for the session.'), 0, 0))
-  container.addChild(titleBox)
+  let index = rows.length
+  let cached: string[] | undefined
 
-  const list = new SettingsList(
-    items,
-    Math.min(items.length + 2, 15),
-    getSettingsListTheme(),
-    (id, newValue) => {
-      settings.customTools[id] = LockdownLevelSchema.parse(newValue)
-      host.requestRender()
-    },
-    () => done(),
-    { enableSearch: true },
-  )
-  container.addChild(list)
-
-  return {
-    invalidate: () => container.invalidate(),
-    render: (width) => container.render(width),
-    handleInput: (data) => list.handleInput?.(data),
+  const refresh = () => {
+    cached = undefined
+    host.requestRender()
   }
+
+  const result = (): Record<string, LockdownLevel> => Object.fromEntries(rows.map((row) => [row.name, row.level]))
+
+  const commitInput = () => {
+    const name = input.getValue().trim()
+    if (name.length === 0) return
+    if (!rows.some((row) => row.name === name)) {
+      rows.push({ name, level: 'block' })
+    }
+    input.setValue('')
+    index = rows.length
+    refresh()
+  }
+
+  const component: Component & { focused: boolean } = {
+    focused: false,
+    invalidate: () => {
+      cached = undefined
+    },
+    render(width) {
+      if (cached) return cached
+      input.focused = component.focused && index === rows.length
+      const lines: string[] = [
+        theme.fg('accent', theme.bold('[LOCKDOWN] Tool permissions')),
+        theme.fg('dim', 'Space toggles the level. The last row adds a new tool (blocked by default).'),
+        '',
+      ]
+      const totalRows = rows.length + 1
+      const start = Math.max(0, Math.min(index - Math.floor(MAX_VISIBLE_ROWS / 2), totalRows - MAX_VISIBLE_ROWS))
+      const end = Math.min(start + MAX_VISIBLE_ROWS, totalRows)
+      for (let i = start; i < end; i += 1) {
+        if (i < rows.length) {
+          const row = rows[i]
+          if (!row) continue
+          const selected = i === index
+          const changed = settings.customTools[row.name] !== row.level
+          const prefix = selected ? theme.fg('accent', '→ ') : '  '
+          const value = theme.fg(changed ? 'error' : selected ? 'accent' : 'text', row.name)
+          lines.push(truncateToWidth(`${prefix}${value}  ${theme.fg(changed ? 'error' : 'dim', row.level)}`, width, ''))
+          continue
+        }
+        const inputSelected = i === index
+        const inputPrefix = inputSelected ? theme.fg('accent', '→ ') : '  '
+        // Input renders a hardcoded "> " prompt; drop it so the row uses our own prefix.
+        const rendered = input.render(Math.max(1, width - visibleWidth(inputPrefix) + 2))[0] ?? ''
+        const inputLine = rendered.startsWith('> ') ? rendered.slice(2) : rendered
+        lines.push(truncateToWidth(`${inputPrefix}${inputLine}`, width, ''))
+      }
+
+      if (start > 0 || end < totalRows) {
+        lines.push(theme.fg('dim', `  (${index + 1}/${totalRows})`))
+      }
+
+      const hasText = input.getValue().trim().length > 0
+      lines.push('')
+      lines.push(
+        theme.fg(
+          'dim',
+          `↑↓ navigate • Space toggle level • Enter ${hasText ? 'add' : 'save'} • Esc ${hasText ? 'discard' : 'exit'}`,
+        ),
+      )
+      cached = lines
+      return lines
+    },
+    handleInput(data) {
+      if (matchesKey(data, Key.escape)) {
+        done(undefined)
+        return
+      }
+      if (matchesKey(data, Key.up)) {
+        index = Math.max(0, index - 1)
+        refresh()
+        return
+      }
+      if (matchesKey(data, Key.down)) {
+        index = Math.min(rows.length, index + 1)
+        refresh()
+        return
+      }
+      if (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) {
+        if (input.getValue().trim().length === 0) {
+          done(result())
+          return
+        }
+        commitInput()
+        return
+      }
+      if (index < rows.length) {
+        if (matchesKey(data, Key.space)) {
+          const row = rows[index]
+          if (row) {
+            const next = (lockdownLevelOptions.indexOf(row.level) + 1) % lockdownLevelOptions.length
+            row.level = LockdownLevelSchema.parse(lockdownLevelOptions[next])
+          }
+          refresh()
+        }
+        return
+      }
+      input.handleInput(data)
+      refresh()
+    },
+  }
+
+  return component
 }
 
 interface EntryRow {
@@ -408,12 +496,14 @@ export async function configureNewModeSession(ctx: ExtensionContext, settings: P
     )
     if (choice === undefined) return
 
-    // Tool levels apply as they are cycled, so closing the editor returns to the menu.
     if (choice === TOOL_PERMISSIONS_CHOICE) {
-      await ctx.ui.custom<undefined>((tui, theme, _kb, done) =>
-        createToolPermissionsEditor(settings, theme, tui, () => done(undefined)),
+      const updated = await ctx.ui.custom<Record<string, LockdownLevel> | undefined>((tui, theme, _kb, done) =>
+        createToolPermissionsEditor(settings, theme, tui, done),
       )
-      continue
+      // Esc returns to the menu without saving; a save is final and closes the command.
+      if (updated === undefined) continue
+      settings.customTools = updated
+      return
     }
 
     const result = await ctx.ui.custom<ListEditResult | undefined>((tui, theme, _kb, done) =>

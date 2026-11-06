@@ -24,7 +24,7 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 
 import lockdownExtension from '../index'
 import type { PathPolicySettings } from '../schema'
-import { applyListEdits, createListChooser, createListEditor } from '../session-editor'
+import { applyListEdits, createListChooser, createListEditor, createToolPermissionsEditor } from '../session-editor'
 
 type Handler = (event: unknown, ctx: unknown) => unknown
 type CommandHandler = (args: unknown, ctx: unknown) => Promise<unknown>
@@ -35,6 +35,7 @@ const ENTER = '\r'
 const ESCAPE = '\x1b'
 const DELETE = '\x1b[3~'
 const TAB = '\t'
+const SPACE = ' '
 
 function fakeTheme() {
   return {
@@ -243,6 +244,25 @@ describe('list editor', () => {
   })
 })
 
+describe('tool permissions editor', () => {
+  it('shows changed and newly added tools in red', () => {
+    const theme = fakeTheme()
+    const settings = policySettings({ customTools: { kept: 'allow', bumped: 'warn' } })
+    const editor = createToolPermissionsEditor(settings, theme, { requestRender: vi.fn() }, vi.fn())
+
+    editor.handleInput?.(UP) // select "bumped"
+    editor.handleInput?.(SPACE) // warn -> block
+    editor.handleInput?.(DOWN) // move to the trailing input row
+    for (const character of 'new_tool') editor.handleInput?.(character)
+    editor.handleInput?.(ENTER) // add new_tool at block
+
+    editor.render(80)
+    expect(theme.fg).toHaveBeenCalledWith('error', 'bumped')
+    expect(theme.fg).toHaveBeenCalledWith('error', 'new_tool')
+    expect(theme.fg).not.toHaveBeenCalledWith('error', 'kept')
+  })
+})
+
 describe('new-mode session permissions', () => {
   it('reports that an interactive UI is required when headless', async () => {
     const { ctx, sessionPermissions, custom } = setup({ fileAccess: { allowWrite: [] } }, { hasUI: false })
@@ -274,7 +294,7 @@ describe('new-mode session permissions', () => {
     expect(await writeFile(toolCall, ctx, 'e2e/snapshot.txt')).toBeUndefined()
   })
 
-  it('opens the tool-permission editor and applies a level change', async () => {
+  it('opens the tool-permission editor, toggles a level with Space and saves', async () => {
     const { custom, components } = createCustomDriver()
     const { ctx, sessionPermissions, toolCall } = setup(
       { fileAccess: { allowWrite: [], denyWrite: [] }, customTools: { my_tool: 'warn' } },
@@ -289,15 +309,60 @@ describe('new-mode session permissions', () => {
     chooser.handleInput?.(ENTER)
 
     const editor = await nextComponent(components, 2)
-    editor.handleInput?.(ENTER) // warn -> block
+    editor.handleInput?.(UP) // select my_tool
+    editor.handleInput?.(SPACE) // warn -> block
+    editor.handleInput?.(ENTER) // empty input saves and closes the command
+    await run
+
+    expect(await toolCall({ toolName: 'my_tool', input: {} }, ctx)).toMatchObject({ block: true })
+  })
+
+  it('adds a new custom tool at block level from the trailing input row', async () => {
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall } = setup(
+      { fileAccess: { allowWrite: [], denyWrite: [] }, customTools: {} },
+      { custom },
+    )
+
+    const run = sessionPermissions(undefined, ctx)
+
+    const chooser = await nextComponent(components, 1)
+    for (let i = 0; i < 4; i += 1) chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    for (const character of 'my_tool') editor.handleInput?.(character)
+    editor.handleInput?.(ENTER) // add my_tool at block
+    editor.handleInput?.(ENTER) // empty input saves and closes the command
+    await run
+
+    expect(await toolCall({ toolName: 'my_tool', input: {} }, ctx)).toMatchObject({ block: true })
+  })
+
+  it('discards tool-permission edits on escape', async () => {
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall } = setup(
+      { fileAccess: { allowWrite: [], denyWrite: [] }, customTools: { my_tool: 'warn' } },
+      { custom },
+    )
+
+    const run = sessionPermissions(undefined, ctx)
+
+    const chooser = await nextComponent(components, 1)
+    for (let i = 0; i < 4; i += 1) chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    editor.handleInput?.(UP)
+    editor.handleInput?.(SPACE) // warn -> block, but not saved
     editor.handleInput?.(ESCAPE)
 
-    // Esc returns to the chooser; close it.
     const closing = await nextComponent(components, 3)
     closing.handleInput?.(ESCAPE)
     await run
 
-    expect(await toolCall({ toolName: 'my_tool', input: {} }, ctx)).toMatchObject({ block: true })
+    ctx.ui.select = vi.fn().mockResolvedValue('Yes')
+    expect(await toolCall({ toolName: 'my_tool', input: {} }, ctx)).toBeUndefined()
   })
 
   it('removes an entry from a selected list', async () => {
