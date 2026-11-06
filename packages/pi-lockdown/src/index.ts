@@ -1,19 +1,61 @@
 import path from 'node:path'
 
-import { type ExtensionAPI, getSettingsListTheme, isToolCallEventType } from '@earendil-works/pi-coding-agent'
+import {
+  type ExtensionAPI,
+  type ExtensionContext,
+  getSettingsListTheme,
+  isToolCallEventType,
+} from '@earendil-works/pi-coding-agent'
 import { Box, Container, SettingsList, Text } from '@earendil-works/pi-tui'
 
 import { SUBAGENT_FLAG } from './constants'
-import { type LockdownLevel, LockdownLevelSchema, LockdownSettingsSchema } from './schema'
+import { evaluateFilePath, type PathEvaluation } from './path-policy'
+import { defaultLockdownSettings, type LockdownLevel, LockdownLevelSchema } from './schema'
+import { configureNewModeSession } from './session-editor'
+import {
+  applySessionPermissions,
+  SESSION_PERMISSIONS_TOOL_NAME,
+  SessionPermissionsParams,
+} from './session-permissions-tool'
 import { constructSettingsList, isInside, isPiReadablePath, loadSettings } from './utils'
 
+type BlockResult = { block: true; reason: string }
+
+function denyReason(toolName: string, inputPath: string, decision: PathEvaluation): string {
+  const rule = decision.rule ? `\n\nMatched deny rule: "${decision.rule}".` : ''
+  const target = decision.target !== decision.requested ? `\nResolved target: ${decision.target}.` : ''
+  return `[LOCKDOWN] Not allowed to perform action:\n\n${toolName}: ${inputPath}.${target}${rule}`
+}
+
+/**
+ * Prompts for a file call the policy did not allow. Returns `undefined` when
+ * the user allows the single call, otherwise a block result. Without a UI,
+ * the prompt fails closed.
+ */
+async function promptForPath(
+  ctx: ExtensionContext,
+  toolName: string,
+  inputPath: string,
+  rule: string | undefined,
+): Promise<BlockResult | undefined> {
+  const detail = rule ? `\n\nMatched rule: "${rule}".` : ''
+  if (!ctx.hasUI) {
+    return { block: true, reason: `[LOCKDOWN] Not allowed to perform action:\n\n${toolName}: ${inputPath}.${detail}` }
+  }
+
+  const choice = await ctx.ui.select(
+    `[LOCKDOWN]\n⚠️ Allow agent to perform action?\n\n${toolName}: ${inputPath}${detail}`,
+    ['Yes', 'No'],
+  )
+
+  if (choice !== 'Yes') {
+    return { block: true, reason: '[LOCKDOWN] Action blocked by user.' }
+  }
+  return undefined
+}
+
 // Settings
-let lockdownSettings = LockdownSettingsSchema.parse({
-  fileAccess: {
-    external: { protected: {}, unprotected: {} },
-    internal: { protected: {}, unprotected: {} },
-  },
-})
+let lockdownSettings = defaultLockdownSettings()
 
 function isSubagentProcess(pi: ExtensionAPI): boolean {
   return pi.getFlag(SUBAGENT_FLAG) === true || process.env.PI_LOCKDOWN_SUBAGENT === '1'
@@ -41,9 +83,44 @@ export default function (pi: ExtensionAPI) {
 
     lockdownSettings = loadedSettings
 
-    // Set tools
+    // Set tools. The session-permissions tool is main-agent only; its level
+    // still comes from `customTools` (default `warn`, so it prompts).
     const tools = (lockdownSettings.defaultTools as string[]).concat(Object.keys(lockdownSettings.customTools))
+    if (!isSubagentProcess(pi)) tools.push(SESSION_PERMISSIONS_TOOL_NAME)
     pi.setActiveTools(Array.from(new Set(tools)))
+  })
+
+  pi.registerTool({
+    name: SESSION_PERMISSIONS_TOOL_NAME,
+    label: 'Update Session Permissions',
+    description:
+      'Temporarily add, remove, or set entries in one of the session lockdown path lists (denyRead, allowRead, allowWrite, denyWrite). Use it only when the user asks to grant or revoke access for the current session, for example after a write was blocked or prompted. Changes are in-memory only and are discarded by /lockdown:reset or a new session.',
+    promptSnippet: 'Change session-only lockdown path lists when the user asks for temporary access',
+    promptGuidelines: [
+      'Use lockdown_session_permissions to grant or revoke session access only when the user asks; the call itself is confirmed by the normal custom-tool permission.',
+      'Prefer the narrowest entry that unblocks the task (for example "e2e/" rather than "."), and say what you changed.',
+    ],
+    parameters: SessionPermissionsParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      if (isSubagentProcess(pi)) {
+        return {
+          content: [{ type: 'text', text: 'Session permissions are not available to subagents.' }],
+          details: {},
+          isError: true,
+        }
+      }
+
+      const outcome = applySessionPermissions(lockdownSettings, params)
+      if (!outcome.ok) {
+        return { content: [{ type: 'text', text: outcome.message }], details: {}, isError: true }
+      }
+
+      ctx.ui.notify(`[LOCKDOWN] ${outcome.message}`, 'info')
+      return {
+        content: [{ type: 'text', text: `${outcome.message} Changes apply to this session only.` }],
+        details: { list: outcome.list, entries: outcome.entries },
+      }
+    },
   })
 
   pi.on('tool_call', async (event, ctx) => {
@@ -78,10 +155,6 @@ export default function (pi: ExtensionAPI) {
       inputPath = event.input ? JSON.stringify(event.input) : '.'
     }
 
-    const location: 'internal' | 'external' = isInside(ctx.cwd, inputPath) ? 'internal' : 'external'
-    const isProtected = lockdownSettings.protectedPatterns.some((pattern) => path.matchesGlob(inputPath, pattern))
-    const protection: 'protected' | 'unprotected' = isProtected ? 'protected' : 'unprotected'
-
     let permAction: 'read' | 'edit' | 'write' | undefined = undefined
 
     if (isRead) {
@@ -102,8 +175,25 @@ export default function (pi: ExtensionAPI) {
       return
     }
 
+    // New mode: built-in file tools go through the four path-list policy.
+    if (lockdownSettings.mode === 'new' && permAction) {
+      const action = permAction === 'read' ? 'read' : 'write'
+      const decision = evaluateFilePath(lockdownSettings, ctx.cwd, inputPath, action)
+      switch (decision.outcome) {
+        case 'allow':
+          return
+        case 'block':
+          return { block: true, reason: denyReason(event.toolName, inputPath, decision) }
+        case 'prompt':
+          return promptForPath(ctx, event.toolName, inputPath, decision.rule)
+      }
+    }
+
     let permission: LockdownLevel
-    if (permAction && ['read', 'edit', 'write'].includes(permAction)) {
+    if (permAction && lockdownSettings.mode === 'legacy') {
+      const location: 'internal' | 'external' = isInside(ctx.cwd, inputPath) ? 'internal' : 'external'
+      const isProtected = lockdownSettings.protectedPatterns.some((pattern) => path.matchesGlob(inputPath, pattern))
+      const protection: 'protected' | 'unprotected' = isProtected ? 'protected' : 'unprotected'
       permission = lockdownSettings.fileAccess[location][protection][permAction]
     } else {
       // Custom tools: Default to warn
@@ -163,7 +253,12 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand('lockdown:session-permissions', {
     description: 'Configure file access permissions for session.',
     handler: async (_args, ctx) => {
-      const items = constructSettingsList(lockdownSettings)
+      const settings = lockdownSettings
+      if (settings.mode === 'new') {
+        await configureNewModeSession(ctx, settings)
+        return
+      }
+      const items = constructSettingsList(settings)
 
       await ctx.ui.custom((_tui, theme, _kb, done) => {
         const container = new Container()
@@ -188,11 +283,11 @@ export default function (pi: ExtensionAPI) {
             // Handle value change
             const [permType, locationOrCustomTool, protection, perm] = id.split('__')
             if (permType === 'fileAccess') {
-              lockdownSettings.fileAccess[locationOrCustomTool as 'external' | 'internal'][
+              settings.fileAccess[locationOrCustomTool as 'external' | 'internal'][
                 protection as 'protected' | 'unprotected'
               ][perm as 'read' | 'write' | 'edit'] = LockdownLevelSchema.parse(newValue)
             } else {
-              lockdownSettings.customTools[locationOrCustomTool as string] = LockdownLevelSchema.parse(newValue)
+              settings.customTools[locationOrCustomTool as string] = LockdownLevelSchema.parse(newValue)
             }
           },
           () => done(undefined), // On close

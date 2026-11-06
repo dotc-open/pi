@@ -1,6 +1,6 @@
 {
   "packages": [
-    "npm:@chrischow/pi-lockdown",
+    "../packages/pi-lockdown",
     "npm:@plannotator/pi-extension",
     "npm:@dotc/pi-platform-ai-provider",
     "npm:@dotc/pi-core"
@@ -29,8 +29,10 @@
       "check-types",
       "format",
       "format:fix",
+      "test",
       "--filter @dotc/pi-core build",
-      "--filter @dotc/pi-platform-ai-provider"
+      "--filter @dotc/pi-platform-ai-provider",
+      "--filter @dotc/pi-lockdown test"
     ]
   },
   "lockdown": {
@@ -49,36 +51,15 @@
       "subagent": "allow"
     },
     "defaultTools": ["read", "edit", "write", "grep", "find", "ls"],
-    "protectedPatterns": ["**/.env*", "**/.git/**", "**/node_modules/**"],
     "fileAccess": {
-      "external": {
-        "protected": {
-          "read": "block",
-          "write": "block",
-          "edit": "block",
-          "other": "block"
-        },
-        "unprotected": {
-          "read": "warn",
-          "write": "block",
-          "edit": "block",
-          "other": "block"
-        }
-      },
-      "internal": {
-        "protected": {
-          "read": "warn",
-          "write": "warn",
-          "edit": "warn",
-          "other": "warn"
-        },
-        "unprotected": {
-          "read": "allow",
-          "write": "warn",
-          "edit": "warn",
-          "other": "warn"
-        }
-      }
+      "denyRead": ["**/.env*"],
+      "allowRead": [
+        ".",
+        "./**/.env.development",
+        "~/.pi/agent/install/releases/*/node_modules/@earendil-works/pi-*/**"
+      ],
+      "allowWrite": ["e2e/"],
+      "denyWrite": ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
     }
   },
   "lockdownSubagent": {
@@ -96,36 +77,15 @@
       "subagent": "block"
     },
     "defaultTools": ["read", "grep", "find", "ls"],
-    "protectedPatterns": ["**/.env*", "**/.git/**"],
     "fileAccess": {
-      "external": {
-        "protected": {
-          "read": "block",
-          "write": "block",
-          "edit": "block",
-          "other": "block"
-        },
-        "unprotected": {
-          "read": "allow",
-          "write": "block",
-          "edit": "block",
-          "other": "block"
-        }
-      },
-      "internal": {
-        "protected": {
-          "read": "allow",
-          "write": "warn",
-          "edit": "warn",
-          "other": "warn"
-        },
-        "unprotected": {
-          "read": "allow",
-          "write": "warn",
-          "edit": "warn",
-          "other": "warn"
-        }
-      }
+      "denyRead": ["**/.env*"],
+      "allowRead": [
+        ".",
+        "./**/.env.development",
+        "~/.pi/agent/install/releases/*/node_modules/@earendil-works/pi-*/**"
+      ],
+      "allowWrite": ["e2e/"],
+      "denyWrite": ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
     }
   }
 }
