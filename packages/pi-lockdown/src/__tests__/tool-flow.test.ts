@@ -29,6 +29,7 @@ vi.mock('@earendil-works/pi-tui', () => ({
 }))
 
 import lockdownExtension from '../index'
+import { SESSION_PERMISSIONS_TOOL_NAME } from '../session-permissions-tool'
 
 type Handler = (event: unknown, ctx: unknown) => unknown
 const handlers = new Map<string, Handler>()
@@ -226,6 +227,90 @@ describe('session permission tool', () => {
 
     expect(result?.isError).toBe(true)
     expect(result?.content[0]?.text).toContain('No entries')
+  })
+
+  it('adds a custom tool at block level', async () => {
+    const { toolCall, ctx, tools } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
+
+    const result = await tools
+      .get('lockdown_session_permissions')
+      ?.execute('call', { list: 'customTools', action: 'set', entries: ['danger'] }, ctx)
+
+    expect(result?.isError).toBeUndefined()
+    expect(result?.content[0]?.text).toContain('customTools is now: danger=block')
+    expect(await toolCall({ toolName: 'danger', input: {} }, ctx)).toMatchObject({ block: true })
+  })
+
+  it('sets a custom tool level with name=level', async () => {
+    const { toolCall, ctx, tools } = load({
+      lockdown: { fileAccess: { allowWrite: [], denyWrite: [] }, customTools: { maybe: 'warn' } },
+    })
+
+    const result = await tools
+      .get('lockdown_session_permissions')
+      ?.execute('call', { list: 'customTools', action: 'set', entries: ['maybe=allow'] }, ctx)
+
+    expect(result?.isError).toBeUndefined()
+    expect(await toolCall({ toolName: 'maybe', input: {} }, ctx)).toBeUndefined()
+    expect(ctx.ui.select).not.toHaveBeenCalled()
+  })
+
+  it('removes a custom tool', async () => {
+    const { ctx, tools } = load({
+      lockdown: { fileAccess: { allowWrite: [], denyWrite: [] }, customTools: { gone: 'block' } },
+    })
+
+    const result = await tools
+      .get('lockdown_session_permissions')
+      ?.execute('call', { list: 'customTools', action: 'remove', entries: ['gone'] }, ctx)
+
+    expect(result?.isError).toBeUndefined()
+    expect(result?.content[0]?.text).toContain('(empty)')
+  })
+
+  it('rejects an invalid custom tool level', async () => {
+    const { ctx, tools } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
+
+    const result = await tools
+      .get('lockdown_session_permissions')
+      ?.execute('call', { list: 'customTools', action: 'set', entries: ['tool=maybe'] }, ctx)
+
+    expect(result?.isError).toBe(true)
+    expect(result?.content[0]?.text).toContain('Invalid level')
+  })
+
+  it('refuses to change its own session level', async () => {
+    const { ctx, tools } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
+
+    const result = await tools
+      .get('lockdown_session_permissions')
+      ?.execute(
+        'call',
+        { list: 'customTools', action: 'set', entries: [`${SESSION_PERMISSIONS_TOOL_NAME}=allow`] },
+        ctx,
+      )
+
+    expect(result?.isError).toBe(true)
+    expect(result?.content[0]?.text).toContain('Refusing')
+  })
+
+  it('applies nothing when a mixed call touches its own level', async () => {
+    const { toolCall, ctx, tools } = load(
+      { lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } },
+      { hasUI: false },
+    )
+
+    const result = await tools
+      .get('lockdown_session_permissions')
+      ?.execute(
+        'call',
+        { list: 'customTools', action: 'set', entries: ['other=allow', SESSION_PERMISSIONS_TOOL_NAME] },
+        ctx,
+      )
+
+    expect(result?.isError).toBe(true)
+    // `other` was not applied, so it still defaults to warn and blocks headless.
+    expect(await toolCall({ toolName: 'other', input: {} }, ctx)).toMatchObject({ block: true })
   })
 })
 

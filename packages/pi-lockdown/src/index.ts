@@ -94,11 +94,12 @@ export default function (pi: ExtensionAPI) {
     name: SESSION_PERMISSIONS_TOOL_NAME,
     label: 'Update Session Permissions',
     description:
-      'Temporarily add, remove, or set entries in one of the session lockdown path lists (denyRead, allowRead, allowWrite, denyWrite). Use it only when the user asks to grant or revoke access for the current session, for example after a write was blocked or prompted. Changes are in-memory only and are discarded by /lockdown:reset or a new session.',
-    promptSnippet: 'Change session-only lockdown path lists when the user asks for temporary access',
+      'Temporarily add, remove, or set entries in one of the session lockdown path lists (denyRead, allowRead, allowWrite, denyWrite), or set per-tool levels via the customTools list. Use it only when the user asks to grant or revoke access for the current session, for example after a write was blocked or prompted. The tool refuses to change its own session level. Changes are in-memory only and are discarded by /lockdown:reset or a new session.',
+    promptSnippet: 'Change session-only lockdown path lists or tool levels when the user asks for temporary access',
     promptGuidelines: [
       'Use lockdown_session_permissions to grant or revoke session access only when the user asks; the call itself is confirmed by the normal custom-tool permission.',
       'Prefer the narrowest entry that unblocks the task (for example "e2e/" rather than "."), and say what you changed.',
+      'For customTools, pass "tool_name" (defaults to block) or "tool_name=<allow|warn|block>"; the tool cannot change its own level.',
     ],
     parameters: SessionPermissionsParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
