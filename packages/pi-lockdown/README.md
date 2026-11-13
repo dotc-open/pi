@@ -162,19 +162,9 @@ Make a project read-only except for one directory (a write allowlist):
 
 Because `*` is least specific, `e2e/` is the only writable location and every other write is hard-blocked.
 
-#### Symlinks and target resolution
+#### Session commands
 
-For every file call Lockdown evaluates **both** the requested path and its canonical target (symlinks resolved; for a path that does not exist yet, the nearest existing parent is resolved and the remaining segments appended). The call is allowed only if both paths are allowed; a write denied on either path is hard-blocked; otherwise a prompt on either path prompts. If the target cannot be resolved, Lockdown fails closed.
-
-This stops `allowWrite: ["e2e/"]` from authorising writes through an `e2e/` symlink into an external or protected directory: the requested path matches the allow, but the resolved target matches the deny.
-
-#### Difference from pi-sandbox
-
-pi-sandbox applies deny-first precedence to writes and allow-first to reads. Lockdown uses a single most-specific-wins rule for both, which additionally means a more specific allow **can carve a hole** in a broader deny — so only the config actually running can open one (project and global settings are never merged).
-
-#### Session commands (new mode)
-
-`/lockdown:session-permissions` shows the four arrays with their current entries inline (dim, single line, truncated with `...`). Choosing one opens a vertical list (windowed to 10 rows): move with ↑↓, press Del to flag an entry for deletion, and type in the trailing row to add one (Tab completes paths from the filesystem). Enter adds the typed text, or saves when the row is empty (a save is final and closes the command); Esc returns to the list menu without saving. Entries are validated before they are applied, and edits are in-memory only. `/lockdown:reset` reloads the selected `settings.json` block (or defaults), discarding session edits. In a non-interactive session the command reports that an interactive UI is required. Agents cannot change session permissions themselves.
+`/lockdown:session-permissions` can be used to temporarily change permissions. Add/remove entries to the four arrays using the interactive menu.
 
 ### Legacy mode (fileAccess matrix)
 
@@ -271,16 +261,7 @@ Resolution order for a **subagent** process: (1) project `lockdownSubagent`, (2)
 }
 ```
 
-**Updating subagent policy mid-session:** each subagent reads `settings.json` when its own process starts, so the main agent can edit the `lockdownSubagent` block right before dispatching a subagent and the new policy applies to that subagent immediately. There is no need to reload the main agent (it does not read subagent settings) and the main agent's own session policy is unaffected. This is an ordinary file edit: it happens only if the agent's current policy allows writing the settings file (otherwise it prompts or is blocked), and it persists to disk — unlike `/lockdown:session-permissions`, which is session-only and never touches `lockdownSubagent` and never persists.
-
-**Spawner contract:** when a future subagent extension spawns child `pi` processes, it must add `--lockdown-subagent` to the child's arguments — and **only** for subagent processes, never for the main agent. Example:
-
-```ts
-const args: string[] = ['--mode', 'json', '-p', '--no-session']
-args.push('--lockdown-subagent') // always, for every spawned subagent
-```
-
-Requires pi-lockdown to be installed globally (`~/.pi/agent/extensions` or via a pi package) so it loads inside the spawned processes.
+**Updating subagent policy mid-session:** each subagent reads `settings.json` when its own process starts, so the main agent can edit the `lockdownSubagent` block right before dispatching a subagent and the new policy applies to that subagent immediately. There is no need to reload the main agent (it does not read subagent settings) and the main agent's own session policy is unaffected.
 
 ## Headless behavior
 
