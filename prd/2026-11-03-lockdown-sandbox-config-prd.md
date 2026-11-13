@@ -106,6 +106,7 @@ Mapping to legacy defaults:
 **8. Session commands**
 
 - `/lockdown:session-permissions` is reworked for the new mode: it lets the user add/remove paths in the four arrays for the current session.
+- Session-list changes are **user-initiated only**. Lockdown exposes no tool through which the agent can edit its own session lists. An early build added `lockdown_session_permissions` for that; it was removed because, while it existed, agents preferred granting themselves `allow` over taking the one-shot `warn` prompt — which defeats the human-in-the-loop consent the prompt model exists to produce. Removing it also keeps the agent's view of the policy identical to the user's: the interactive command is the single way to widen session access.
 - `/lockdown:reset` re-reads `settings.json` / defaults, discarding session edits.
 - Project or global policy changes are made by editing `settings.json` (the team lead's committed-policy workflow), not from a prompt.
 
@@ -128,6 +129,7 @@ Mapping to legacy defaults:
 - **Keep pi-sandbox's opposite precedence (writes deny-first, reads allow-first).** Rejected. It needs a special-case soft `denyRead` _and_ cannot express "deny `**/.env*`, allow `.env.development`" without session grants (which we removed). One most-specific-wins rule is easier to explain and unlocks write-allowlists (`denyWrite: ["*"]` + `allowWrite: ["e2e/"]`).
 - **Translate legacy → new at load and run one engine.** Cleaner internals, but lossy: the legacy `allow`/`warn`/`block` slot levels do not map cleanly onto the new `allow`/`prompt`/`block` model (e.g. `external.protected.write: block` vs the new model's soft `denyRead`). Rejected in favour of the mode switch.
 - **Layer legacy as a fallback under new rules.** Most flexible, hardest to explain, and easy to reason about incorrectly. Rejected.
+- **Let the agent edit its own session lists via a tool.** Tried (`lockdown_session_permissions`), then removed. In practice the agent used it to grant itself `allow` rather than asking for a one-time `warn` approval, so the check became a formality instead of a consent point. Rejected in favour of the user-only `/lockdown:session-permissions` command.
 
 ## User Stories
 
@@ -179,7 +181,7 @@ Mapping to legacy defaults:
 
 ### User Flow 4: Session tweak without editing config
 
-1. Dev runs `/lockdown:session-permissions`.
+1. Dev runs `/lockdown:session-permissions` (the agent cannot run it for itself — no session-permission tool is exposed).
 2. The dialog lists the four arrays.
 3. Dev adds `e2e/` to `allowWrite` (session only) → changes apply immediately.
 4. Dev runs `/lockdown:reset` → rules are restored from `settings.json` / defaults.
