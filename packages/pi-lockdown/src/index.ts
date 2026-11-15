@@ -9,9 +9,15 @@ import {
 import { Box, Container, SettingsList, Text } from '@earendil-works/pi-tui'
 
 import { SUBAGENT_FLAG } from './constants'
-import { evaluateFilePath, type PathEvaluation } from './path-policy'
-import { defaultLockdownSettings, type LockdownLevel, LockdownLevelSchema } from './schema'
-import { configureNewModeSession } from './session-editor'
+import { evaluateFilePath, type PathAction, type PathEvaluation } from './path-policy'
+import {
+  defaultLockdownSettings,
+  type LockdownLevel,
+  LockdownLevelSchema,
+  type PathPolicyKey,
+  type PathPolicySettings,
+} from './schema'
+import { applyListEdits, configureNewModeSession } from './session-editor'
 import { constructSettingsList, isInside, isPiReadablePath, loadSettings } from './utils'
 
 type BlockResult = { block: true; reason: string }
@@ -23,27 +29,40 @@ function denyReason(toolName: string, inputPath: string, decision: PathEvaluatio
 }
 
 /**
- * Prompts for a file call the policy did not allow. Returns `undefined` when
- * the user allows the single call, otherwise a block result. Without a UI,
- * the prompt fails closed.
+ * Prompts for a new-mode file call the policy did not allow. Returns
+ * `undefined` when the user allows the call once or for the session, otherwise
+ * a block result. Without a UI, the prompt fails closed.
  */
 async function promptForPath(
   ctx: ExtensionContext,
+  settings: PathPolicySettings,
   toolName: string,
   inputPath: string,
-  rule: string | undefined,
+  decision: PathEvaluation,
+  action: PathAction,
 ): Promise<BlockResult | undefined> {
-  const detail = rule ? `\n\nMatched rule: "${rule}".` : ''
+  const detail = decision.rule ? `\n\nMatched rule: "${decision.rule}".` : ''
   if (!ctx.hasUI) {
     return { block: true, reason: `[LOCKDOWN] Not allowed to perform action:\n\n${toolName}: ${inputPath}.${detail}` }
   }
 
   const choice = await ctx.ui.select(
     `[LOCKDOWN]\n⚠️ Allow agent to perform action?\n\n${toolName}: ${inputPath}${detail}`,
-    ['Yes', 'No'],
+    ['Allow once', 'Allow for this session', 'Block'],
   )
 
-  if (choice !== 'Yes') {
+  if (choice === 'Allow for this session') {
+    const key: PathPolicyKey = action === 'read' ? 'allowRead' : 'allowWrite'
+    const relative = path.relative(ctx.cwd, decision.requested)
+    // `.` is the documented token for the project root, which has no relative form.
+    const entry = isInside(ctx.cwd, decision.requested) ? (relative === '' ? '.' : relative) : decision.requested
+    // Same in-memory arrays the /lockdown:session-permissions command edits.
+    settings[key] = applyListEdits(settings[key], { added: [entry], removed: [] })
+    ctx.ui.notify(`[LOCKDOWN] Added "${entry}" to ${key}.`, 'info')
+    return undefined
+  }
+
+  if (choice !== 'Allow once') {
     return { block: true, reason: '[LOCKDOWN] Action blocked by user.' }
   }
   return undefined
@@ -145,7 +164,7 @@ export default function (pi: ExtensionAPI) {
         case 'block':
           return { block: true, reason: denyReason(event.toolName, inputPath, decision) }
         case 'prompt':
-          return promptForPath(ctx, event.toolName, inputPath, decision.rule)
+          return promptForPath(ctx, lockdownSettings, event.toolName, inputPath, decision, action)
       }
     }
 

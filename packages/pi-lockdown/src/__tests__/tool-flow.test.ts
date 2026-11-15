@@ -59,7 +59,7 @@ function load(project: Record<string, unknown>, options: { hasUI?: boolean } = {
 
   lockdownExtension(pi)
 
-  const select = vi.fn(async () => 'Yes' as string | undefined)
+  const select = vi.fn(async () => 'Allow once' as string | undefined)
   const ctx = makeCtx(options.hasUI ?? true, select)
   handlers.get('session_start')?.(undefined, ctx)
 
@@ -123,7 +123,7 @@ describe('new-mode file tool dispatch', () => {
 })
 
 describe('new-mode prompt outcomes', () => {
-  it('prompts once and allows on Yes', async () => {
+  it('prompts once and allows on Allow once', async () => {
     const { toolCall, ctx } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
     expect(
       await toolCall({ toolName: 'write', input: { path: path.join(state.cwd, 'src', 'a'), content: 'x' } }, ctx),
@@ -131,9 +131,9 @@ describe('new-mode prompt outcomes', () => {
     expect(ctx.ui.select).toHaveBeenCalledTimes(1)
   })
 
-  it('blocks on No with the user-blocked reason', async () => {
+  it('blocks on Block with the user-blocked reason', async () => {
     const { toolCall, ctx, select } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
-    select.mockResolvedValueOnce('No')
+    select.mockResolvedValueOnce('Block')
     expect(
       await toolCall({ toolName: 'write', input: { path: path.join(state.cwd, 'src', 'a'), content: 'x' } }, ctx),
     ).toMatchObject({ block: true, reason: '[LOCKDOWN] Action blocked by user.' })
