@@ -173,12 +173,77 @@ describe('new-mode prompt outcomes', () => {
   })
 })
 
+describe('session grants from the prompt', () => {
+  it('offers the session option in new mode', async () => {
+    const { toolCall, ctx, select } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
+    await toolCall({ toolName: 'write', input: { path: path.join(state.cwd, 'src', 'a'), content: 'x' } }, ctx)
+    expect(select).toHaveBeenCalledWith(expect.any(String), ['Allow once', 'Allow for this session', 'Block'])
+  })
+
+  it('adds a write path to allowWrite and stops prompting', async () => {
+    const { toolCall, ctx, select } = load({ lockdown: { fileAccess: { allowWrite: [], denyWrite: [] } } })
+    const target = path.join(state.cwd, 'src', 'a')
+
+    select.mockResolvedValueOnce('Allow for this session')
+    expect(await toolCall({ toolName: 'write', input: { path: target, content: 'x' } }, ctx)).toBeUndefined()
+    expect(ctx.ui.notify).toHaveBeenCalledWith('[LOCKDOWN] Added "src/a" to allowWrite.', 'info')
+
+    expect(await toolCall({ toolName: 'write', input: { path: target, content: 'x' } }, ctx)).toBeUndefined()
+    expect(ctx.ui.select).toHaveBeenCalledTimes(1)
+  })
+
+  it('adds an external read to allowRead as an absolute path', async () => {
+    const { toolCall, ctx, select } = load({ lockdown: { fileAccess: { allowRead: ['.'] } } })
+    const target = path.join(path.dirname(state.cwd), 'outside.txt')
+
+    select.mockResolvedValueOnce('Allow for this session')
+    expect(await toolCall({ toolName: 'read', input: { path: target } }, ctx)).toBeUndefined()
+    expect(ctx.ui.notify).toHaveBeenCalledWith(`[LOCKDOWN] Added "${target}" to allowRead.`, 'info')
+
+    expect(await toolCall({ toolName: 'read', input: { path: target } }, ctx)).toBeUndefined()
+    expect(ctx.ui.select).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses "." for the project root', async () => {
+    const { toolCall, ctx, select } = load({ lockdown: { fileAccess: { allowRead: [] } } })
+    select.mockResolvedValueOnce('Allow for this session')
+
+    expect(await toolCall({ toolName: 'ls', input: {} }, ctx)).toBeUndefined()
+    expect(ctx.ui.notify).toHaveBeenCalledWith('[LOCKDOWN] Added "." to allowRead.', 'info')
+  })
+
+  it('grants a folder and its subtree', async () => {
+    mkdirSync(path.join(state.cwd, 'src'), { recursive: true })
+    const { toolCall, ctx, select } = load({ lockdown: { fileAccess: { allowRead: [] } } })
+
+    select.mockResolvedValueOnce('Allow for this session')
+    expect(await toolCall({ toolName: 'ls', input: { path: path.join(state.cwd, 'src') } }, ctx)).toBeUndefined()
+    expect(ctx.ui.notify).toHaveBeenCalledWith('[LOCKDOWN] Added "src" to allowRead.', 'info')
+
+    // The directory rule covers src and everything under it.
+    expect(
+      await toolCall({ toolName: 'read', input: { path: path.join(state.cwd, 'src', 'a.ts') } }, ctx),
+    ).toBeUndefined()
+    expect(ctx.ui.select).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('custom tools', () => {
   it('uses customTools permissions in new mode', async () => {
     const { toolCall, ctx } = load({
       lockdown: { fileAccess: { allowWrite: [], denyWrite: [] }, customTools: { danger: 'block' } },
     })
     expect(await toolCall({ toolName: 'danger', input: {} }, ctx)).toMatchObject({ block: true })
+  })
+
+  it('keeps the custom-tool two-option prompt', async () => {
+    const { toolCall, ctx, select } = load({
+      lockdown: { fileAccess: { allowWrite: [], denyWrite: [] }, customTools: { maybe: 'warn' } },
+    })
+    select.mockResolvedValueOnce('Yes')
+
+    expect(await toolCall({ toolName: 'maybe', input: {} }, ctx)).toBeUndefined()
+    expect(select).toHaveBeenCalledWith(expect.any(String), ['Yes', 'No'])
   })
 
   it('fails closed for warn custom tools in headless mode', async () => {
@@ -193,8 +258,8 @@ describe('custom tools', () => {
 describe('legacy mode regression', () => {
   const legacy = {
     fileAccess: {
-      external: {},
-      internal: { unprotected: { read: 'allow', write: 'warn' } },
+      external: { protected: {}, unprotected: {} },
+      internal: { protected: {}, unprotected: { read: 'allow', write: 'warn' } },
     },
   }
 
@@ -204,6 +269,16 @@ describe('legacy mode regression', () => {
     expect(
       await toolCall({ toolName: 'write', input: { path: path.join(state.cwd, 'src', 'a'), content: 'x' } }, ctx),
     ).toMatchObject({ block: true })
+  })
+
+  it('keeps the legacy two-option prompt', async () => {
+    const { toolCall, ctx, select } = load({ lockdown: legacy })
+    select.mockResolvedValueOnce('Yes')
+
+    expect(
+      await toolCall({ toolName: 'write', input: { path: path.join(state.cwd, 'src', 'a'), content: 'x' } }, ctx),
+    ).toBeUndefined()
+    expect(select).toHaveBeenCalledWith(expect.any(String), ['Yes', 'No'])
   })
 
   it('keeps protectedPatterns behaviour for legacy configs', async () => {
