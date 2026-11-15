@@ -1,6 +1,6 @@
 {
   "name": "@dotc/pi-platform-ai-provider",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Platform AI provider extension for Pi",
   "author": "DOTC",
   "license": "MIT",
