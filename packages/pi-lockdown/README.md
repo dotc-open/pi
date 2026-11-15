@@ -35,7 +35,7 @@ When you start Pi, Lockdown automatically sets the tools configured under the `d
 On every tool call, Lockdown applies a permission outcome:
 
 - `allow`: Execution continues.
-- `prompt` (shown as `warn` in legacy mode): Execution is halted — you must confirm the action. In new mode a winning `deny` on a **read** also prompts.
+- `prompt` (shown as `warn` in legacy mode): Execution is halted — you must confirm the action. In new mode a winning `deny` on a **read** also prompts. New-mode file calls offer `Allow once`, `Allow for this session` and `Block`; legacy and custom-tool prompts keep the two-way `Yes`/`No` confirmation.
 - `block`: Execution is blocked unconditionally. In new mode a winning `deny` on a **write** always blocks.
 
 `bash` is always blocked outright, and `write` calls with empty content are always blocked as a safeguard against file soft-deletion.
@@ -144,7 +144,7 @@ Grant unattended writes under `e2e/` while everything else stays controlled:
 ```
 
 - Writing `e2e/snapshot.spec.ts` matches `allowWrite` → allowed.
-- Writing `src/index.ts` matches neither list → Yes/No prompt.
+- Writing `src/index.ts` matches neither list → prompt with `Allow once` / `Allow for this session` / `Block`.
 - Writing `.env` matches `denyWrite` → hard block, no prompt.
 
 Make a project read-only except for one directory (a write allowlist):
@@ -164,7 +164,7 @@ Because `*` is least specific, `e2e/` is the only writable location and every ot
 
 #### Session commands
 
-`/lockdown:session-permissions` can be used to temporarily change permissions. Add/remove entries to the four arrays using the interactive menu.
+`/lockdown:session-permissions` can be used to temporarily change permissions. Add/remove entries to the four arrays using the interactive menu. Choosing **Allow for this session** at a prompt adds the same kind of session-only entry (the requested path goes to `allowRead` for reads, or `allowWrite` for edits and writes); nothing from a prompt is ever written to `settings.json`.
 
 ### Legacy mode (fileAccess matrix)
 
@@ -265,4 +265,4 @@ Resolution order for a **subagent** process: (1) project `lockdownSubagent`, (2)
 
 ## Headless behavior
 
-In interactive sessions a prompt shows a Yes/No confirmation; picking **Yes** allows that single call only, and nothing is persisted. In headless sessions (no UI, e.g. subagents in `--mode json`) the confirmation cannot be shown, so any prompt outcome fails closed and blocks.
+In interactive sessions a new-mode file prompt offers **Allow once**, **Allow for this session** and **Block**. **Allow once** allows that call only and persists nothing; **Allow for this session** also adds the requested path to the session lists (`allowRead` for reads, `allowWrite` for edits and writes), so that path stops prompting until `/lockdown:reset` or a new session. Session grants live in the running process, so a subagent process never inherits them. Legacy and custom-tool prompts keep the two-way **Yes**/**No** confirmation, where **Yes** allows that single call only. In headless sessions (no UI, e.g. subagents in `--mode json`) the confirmation cannot be shown, so any prompt outcome fails closed and blocks.

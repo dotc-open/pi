@@ -45,7 +45,7 @@ After **each step**, run code quality checks (lint:fix, format:fix, check-types)
 
 - [x] Update the new-mode prompt (`promptForPath`) to `Allow once` / `Allow for this session` / `Block`; on the session option, add the entry to `allowRead`/`allowWrite` via `applyListEdits`, notify, and allow the call. Leave the legacy/custom prompt and the headless branch untouched.
 - [x] Tests: new-mode prompt labels; session grant stops the repeat prompt; entry lands in the right list (`allowRead` vs `allowWrite`) with the right shape (relative for internal, `.` for the project root, absolute for external); folder path grants the subtree; `Block` still blocks; legacy/custom/headless unchanged (`Yes`/`No`, no third option).
-- [ ] Docs: README only. PRD, RFC and historical plans are not back-filled.
+- [x] Docs: README only. PRD, RFC and historical plans are not back-filled.
 
 ## Verification
 
