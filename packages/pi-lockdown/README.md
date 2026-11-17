@@ -101,7 +101,7 @@ Matching is resolved by **specificity**, identically for reads and writes: the m
 
 ### Legacy File Access Policy Mode
 
-Lockdown evaluates (1) whether the target path is internal or external, (2) whether the path matches a protected pattern, and (3) which tool is called.
+Legacy mode is opt-in. Lockdown evaluates (1) whether the target path is internal or external, (2) whether the path matches a protected pattern, and (3) which tool is called.
 
 Protected/unprotected patterns can be configured by setting the following properties.
 
@@ -145,15 +145,15 @@ Protected/unprotected patterns can be configured by setting the following proper
 
 ### File Access Policy Mode Selection
 
-**To run the path-list policy** — the default for the `fileAccess` key — add one or more of `denyRead`, `allowRead`, `allowWrite` or `denyWrite` to `fileAccess`. An empty `"fileAccess": {}` opts in as well, with every array taking its own default.
+**To run the path-list policy** — the default — add one or more of `denyRead`, `allowRead`, `allowWrite` or `denyWrite` to `fileAccess`. An empty `"fileAccess": {}` opts in as well, with every array taking its own default. A `lockdown` block that sets neither `fileAccess` nor `protectedPatterns` gets the path-list policy with those defaults too, as does a session with no `lockdown` block at all.
 
-**To run the legacy matrix** instead, put `external` and/or `internal` inside `fileAccess`, or omit `fileAccess` and use `protectedPatterns`; both keep their existing behaviour.
+**To run the legacy matrix** instead, put `external` and/or `internal` inside `fileAccess`; that keeps its existing behaviour. `protectedPatterns` alone is not a legacy opt-in: a `lockdown` block that sets it without `fileAccess` is rejected rather than silently ignored.
 
 Mixing path lists with the legacy matrix inside `fileAccess`, or with `protectedPatterns`, is a **hard config error** that names the conflicting keys. Path arrays placed at the top level (the old shape) are rejected with a message to nest them under `fileAccess`. Lockdown will not start rather than silently guess a mode.
 
 ### Default Configuration
 
-Each key defaults when it is omitted; an explicit `[]` disables an array default. These are the path-list policy defaults.
+Each key defaults when it is omitted; an explicit `[]` disables an array default. These are the path-list policy defaults and the fallback when nothing is configured.
 
 ```json
   "lockdown": {

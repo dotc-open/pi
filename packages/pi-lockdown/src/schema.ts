@@ -104,14 +104,10 @@ export type LockdownMode = 'legacy' | 'new'
 export type LockdownSettings = (LegacyLockdownSettings & { mode: 'legacy' }) | (PathPolicySettings & { mode: 'new' })
 export type LegacyModeSettings = Extract<LockdownSettings, { mode: 'legacy' }>
 
+/**
+ * The fallback when nothing is configured: the path-list policy with its
+ * per-array defaults. Legacy mode has to be opted into.
+ */
 export function defaultLockdownSettings(): LockdownSettings {
-  return {
-    mode: 'legacy',
-    ...LegacyLockdownSettingsSchema.parse({
-      fileAccess: {
-        external: { protected: {}, unprotected: {} },
-        internal: { protected: {}, unprotected: {} },
-      },
-    }),
-  }
+  return { mode: 'new', ...PathPolicySettingsSchema.parse({}) }
 }

@@ -97,9 +97,12 @@ export function parseLockdownSettings(raw: unknown, ctx: ExtensionContext): Lock
     return null
   }
 
-  // New mode whenever `fileAccess` is present without the legacy matrix keys,
-  // so `"fileAccess": {}` opts in with every default.
-  if (fileAccess !== undefined && matrixKeys.length === 0) {
+  // New mode unless the legacy engine is asked for: the matrix keys inside
+  // `fileAccess`, or `protectedPatterns` without `fileAccess`. A bare
+  // `"fileAccess": {}` opts in with every default.
+  const legacyRequested = matrixKeys.length > 0 || (fileAccess === undefined && 'protectedPatterns' in block)
+
+  if (!legacyRequested) {
     if ('protectedPatterns' in block) {
       ctx.ui.notify(
         `[LOCKDOWN] Cannot mix "${FILE_ACCESS_KEY}" path lists with the legacy "protectedPatterns" key.`,

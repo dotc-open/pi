@@ -64,6 +64,19 @@ describe('mode selection on raw keys', () => {
     expect(parseLockdownSettings(legacyBlock, ctx)?.mode).toBe('legacy')
   })
 
+  it('rejects protectedPatterns without fileAccess instead of ignoring it', () => {
+    const { ctx, notify } = makeCtx()
+    expect(parseLockdownSettings({ protectedPatterns: ['**/.env*'] }, ctx)).toBeNull()
+    expect(notify).toHaveBeenCalled()
+  })
+
+  it('selects new mode when the block sets neither fileAccess nor protectedPatterns', () => {
+    const { ctx } = makeCtx()
+    const settings = parseLockdownSettings({ customTools: { danger: 'block' } }, ctx)
+    expect(settings?.mode).toBe('new')
+    expect(settings?.mode === 'new' ? settings.allowRead : []).toEqual([...DEFAULT_PATH_POLICY.allowRead])
+  })
+
   it('errors when a path list sits outside fileAccess', () => {
     const { ctx, notify } = makeCtx()
     const result = parseLockdownSettings({ allowWrite: [] }, ctx)

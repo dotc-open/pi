@@ -47,9 +47,12 @@ describe('loadSettings source order', () => {
     expect(newMode(loadSettings(makeCtx().ctx)).allowWrite).toEqual(['global/'])
   })
 
-  it('uses legacy defaults when no block exists', () => {
-    const settings = loadSettings(makeCtx().ctx)
-    expect(settings?.mode).toBe('legacy')
+  it('uses path-list defaults when no block exists', () => {
+    const settings = newMode(loadSettings(makeCtx().ctx))
+    expect(settings.denyRead).toEqual([...DEFAULT_PATH_POLICY.denyRead])
+    expect(settings.allowRead).toEqual([...DEFAULT_PATH_POLICY.allowRead])
+    expect(settings.allowWrite).toEqual([...DEFAULT_PATH_POLICY.allowWrite])
+    expect(settings.denyWrite).toEqual([...DEFAULT_PATH_POLICY.denyWrite])
   })
 })
 
