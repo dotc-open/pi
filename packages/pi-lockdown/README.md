@@ -2,13 +2,6 @@
 
 An opinionated [Pi](https://pi.dev/) extension that adds security constraints to agent tool usage. It intercepts every tool call and enforces fine-grained read/edit/write permissions.
 
-Lockdown has two configuration modes:
-
-- **Path-list policy (new mode)** — four arrays (`denyRead`, `allowRead`, `allowWrite`, `denyWrite`) with most-specific-wins matching. Recommended.
-- **Legacy mode** — the original `fileAccess` matrix plus `protectedPatterns`. Still supported unchanged for existing configs.
-
-See [Mode switch](#mode-switch) for how Lockdown picks a mode.
-
 ## Installation
 
 ```bash
@@ -17,7 +10,12 @@ pi install npm:@dotc/pi-lockdown
 
 ## Usage
 
-Configure Lockdown (see [Configuration](#configuration) below), then start Pi.
+Lockdown has two configuration modes:
+
+- **[Path-list policy](#path-list-file-access-policy)** — Configure four arrays of patterns (`denyRead`, `allowRead`, `allowWrite`, `denyWrite`) with most-specific-wins matching.
+- **[Legacy mode](#legacy-file-access-policy-mode)** — Based on whether files are inside or outside the project, and whether they match protected patterns.
+
+Configure Lockdown for either mode, then start Pi.
 
 If you need to amend settings for the session:
 
@@ -34,36 +32,38 @@ When you start Pi, Lockdown automatically sets the tools configured under the `d
 
 On every tool call, Lockdown applies a permission outcome:
 
-- `allow`: Execution continues.
-- `prompt` (shown as `warn` in legacy mode): Execution is halted — you must confirm the action. In new mode a winning `deny` on a **read** also prompts. New-mode file calls offer `Allow once`, `Allow for this session` and `Block`; legacy and custom-tool prompts keep the two-way `Yes`/`No` confirmation.
-- `block`: Execution is blocked unconditionally. In new mode a winning `deny` on a **write** always blocks.
+- `allow`: execution continues.
+- `prompt` (legacy: `warn`): execution is halted until you confirm.
+- `block`: execution is blocked unconditionally.
 
-`bash` is always blocked outright, and `write` calls with empty content are always blocked as a safeguard against file soft-deletion.
-
-### Tool routing
+**Tool routing**
 
 - `read`, `grep`, `find` and `ls` use the **read** policy.
 - `edit` and `write` use the **write** policy.
 - Custom tools use their `customTools` level.
 
+**Pi package lookups**
+
+Read-only lookups (`read`, `grep`, `find`, and `ls`) inside Pi's installed package directory are always allowed, even when those paths are external or match a protected pattern such as `**/node_modules/**`. This covers Pi's `README.md`, `docs/`, `examples/`, `src/`, and `dist/` as well as the package's bundled dependencies, and lets a search be rooted at the package directory itself. The exception uses Pi's installed package path, not an arbitrary directory named `docs`. Paths outside the package (including through symlinks) are not exempt. Edits, writes, and custom tools still follow the normal permissions.
+
+**Empty write protection**
+
+Lockdown also blocks empty writes (`write` with empty content) as a safeguard against file soft-deletion workarounds.
+
 ## Configuration
 
 Add a `lockdown` property in your project or global `settings.json`. The order of hierarchy that Lockdown respects is: (1) project, (2) global, then (3) defaults (see below). Lockdown **does not** merge project and global settings. For example, if a `lockdown` config exists in **both** the project and global `settings.json` files, only the values in the **project** block are used, and none of the configs in the global `settings.json` are applied.
 
-`defaultTools` and `customTools` work the same way in both modes:
+| property            | description                                                                                         | default                                                                              |
+| ------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `defaultTools`      | Built-in tools Lockdown activates at session start                                                  | `read`, `edit`, `write`, `grep`, `find`, `ls`                                        |
+| `customTools`       | Permission level per non-built-in tool                                                              | `warn` for every tool                                                                |
+| `fileAccess`        | The path-list policy, or the legacy `external`/`internal` matrix                                    | Path-list policy — see [Path-list File Access Policy](#path-list-file-access-policy) |
+| `protectedPatterns` | Globs that mark paths as protected, used by the [legacy mode](#legacy-file-access-policy-mode) only | `**/.env*`, `**/.git/**`, `**/node_modules/**`                                       |
 
-- `defaultTools` overrides which built-in tools Lockdown activates.
-- `customTools` maps tool names to `<allow|warn|block>`. Add permissions for all custom tools and tools from other extensions here, or Lockdown defaults them to `warn`.
+### Path-list File Access Policy
 
-### Mode switch
-
-- If the `fileAccess` key holds path lists (`denyRead`/`allowRead`/`allowWrite`/`denyWrite`), or is an empty object, the **new path-list policy** runs.
-- If `fileAccess` holds the legacy matrix (`external`/`internal`), or is absent alongside `protectedPatterns`, the **legacy** matrix runs exactly as before.
-- Mixing path lists with the legacy matrix inside `fileAccess`, or with `protectedPatterns`, is a **hard config error** that names the conflicting keys. Path arrays placed at the top level (the old shape) are rejected with a message to nest them under `fileAccess`. Lockdown will not start rather than silently guess a mode.
-
-### Path-list policy (new mode)
-
-```jsonc
+```json
 "lockdown": {
   "fileAccess": {
     // For READS:
@@ -82,102 +82,32 @@ Add a `lockdown` property in your project or global `settings.json`. The order o
 }
 ```
 
-Every array is optional and has its own built-in default (below). An omitted array receives its default; an explicit `[]` disables that default.
-
-#### Tokens
+**Tokens**
 
 - `"."` — the project (the internal region).
 - `":external"` — any path outside the project.
 - `"*"` — **every** path. This is a standalone special-case, distinct from the segment-scoped `*` inside a glob. It is the least-specific rule, intended for deny lists; an allow list containing `"*"` allows everything for that action. `:internal` is **not** provided — `"."` already covers the project.
 
-#### Matching
+**Precedence**
 
-- Entries resolve against the project cwd; a leading `~` expands to the home directory. Pi's `@` path prefix on tool paths is stripped before matching.
-- An entry ending in `/` is a directory prefix. An entry that points at an existing directory (e.g. `.`, `~/.config`) is also a prefix. Any other entry is an exact file path. Non-existent intended directories must be written with a trailing slash.
-- Entries containing glob metacharacters (`.env.*`, `*.pem`, `**/.env*`) match as globs. As with pi-sandbox, `*` is segment-scoped (`*.pem` does not match `dir/a.pem`; use `**/*.pem` for that). The standalone `"*"` entry is the exception.
+Matching is resolved by **specificity**, identically for reads and writes: the most-specific matching rule wins. On an exact tie, **deny wins**.
 
-#### Precedence
+| Rank | Rule                                       | Ranking                                                                                    |
+| ---- | ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| 1    | An exact path to a file                    | Matches that one file                                                                      |
+| 2    | A glob                                     | More literal (non-metacharacter) characters wins; `./**/.env.development` beats `**/.env*` |
+| 3    | A directory prefix                         | Longer resolved path wins; `.` or an existing directory such as `e2e/` covers the subtree  |
+| 4    | The region-wide tokens `:external` and `*` | Widest reach, so least specific                                                            |
 
-Matching is resolved by **specificity**, identically for reads and writes: the most-specific matching rule wins.
+### Legacy File Access Policy Mode
 
-1. An exact path to a file.
-2. A glob, ranked by how many literal (non-metacharacter) characters it contains (`./**/.env.development` beats `**/.env*`).
-3. A directory prefix, ranked by resolved path length.
-4. `:external` and `*` are region-wide and least specific.
+Lockdown evaluates (1) whether the target path is internal or external, (2) whether the path matches a protected pattern, and (3) which tool is called.
 
-On an exact tie, **deny wins**. The outcome then depends on the action:
-
-| Group | Winning deny                | Winning allow | No match |
-| ----- | --------------------------- | ------------- | -------- |
-| Write | hard block (never prompted) | allow         | prompt   |
-| Read  | prompt                      | allow         | prompt   |
-
-`allowWrite` also grants read access to the same paths, so write paths need not be repeated in `allowRead`.
-
-#### Defaults
-
-Each default applies only when its array is omitted.
-
-```jsonc
-"fileAccess": {
-  "denyRead":   ["**/.env*"],
-  "allowRead":  [".", "./**/.env.development"],
-  "allowWrite": [],
-  "denyWrite":  ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
-}
-```
-
-These deliberately differ from the legacy defaults: protected internal **writes** change from prompt to hard block, and protected external **reads** change from block to prompt. `denyRead` never hard-blocks.
-
-#### Example policies
-
-Grant unattended writes under `e2e/` while everything else stays controlled:
+Protected/unprotected patterns can be configured by setting the following properties.
 
 ```json
 {
   "lockdown": {
-    "fileAccess": {
-      "allowWrite": ["e2e/"]
-    }
-  }
-}
-```
-
-- Writing `e2e/snapshot.spec.ts` matches `allowWrite` → allowed.
-- Writing `src/index.ts` matches neither list → prompt with `Allow once` / `Allow for this session` / `Block`.
-- Writing `.env` matches `denyWrite` → hard block, no prompt.
-
-Make a project read-only except for one directory (a write allowlist):
-
-```json
-{
-  "lockdown": {
-    "fileAccess": {
-      "denyWrite": ["*"],
-      "allowWrite": ["e2e/"]
-    }
-  }
-}
-```
-
-Because `*` is least specific, `e2e/` is the only writable location and every other write is hard-blocked.
-
-#### Session commands
-
-`/lockdown:session-permissions` can be used to temporarily change permissions. Add/remove entries to the four arrays using the interactive menu. Choosing **Allow for this session** at a prompt adds the same kind of session-only entry (the requested path goes to `allowRead` for reads, or `allowWrite` for edits and writes); nothing from a prompt is ever written to `settings.json`.
-
-### Legacy mode (fileAccess matrix)
-
-If `fileAccess` holds the legacy matrix (`external`/`internal`), or is absent alongside `protectedPatterns`, the original matrix runs unchanged.
-
-```json
-{
-  "lockdown": {
-    "customTools": {
-      "custom-tool-name": "<allow|warn|block>"
-    },
-    // No Bash
-    "defaultTools": ["read", "edit", "write", "grep", "find", "ls"],
     "protectedPatterns": ["**/.env*", "**/.git/**", "**/node_modules/**"],
     "fileAccess": {
       "external": {
@@ -213,25 +143,34 @@ If `fileAccess` holds the legacy matrix (`external`/`internal`), or is absent al
 }
 ```
 
-Default protected patterns:
+### File Access Policy Mode Selection
 
+**To run the path-list policy** — the default for the `fileAccess` key — add one or more of `denyRead`, `allowRead`, `allowWrite` or `denyWrite` to `fileAccess`. An empty `"fileAccess": {}` opts in as well, with every array taking its own default.
+
+**To run the legacy matrix** instead, put `external` and/or `internal` inside `fileAccess`, or omit `fileAccess` and use `protectedPatterns`; both keep their existing behaviour.
+
+Mixing path lists with the legacy matrix inside `fileAccess`, or with `protectedPatterns`, is a **hard config error** that names the conflicting keys. Path arrays placed at the top level (the old shape) are rejected with a message to nest them under `fileAccess`. Lockdown will not start rather than silently guess a mode.
+
+### Default Configuration
+
+Each key defaults when it is omitted; an explicit `[]` disables an array default. These are the path-list policy defaults.
+
+```json
+  "lockdown": {
+    "customTools": {
+      "custom-tool-name": "<allow|warn|block>"
+    },
+    "defaultTools": ["read", "edit", "write", "grep", "find", "ls"],
+    "fileAccess": {
+      "denyRead":   ["**/.env*"],
+      "allowRead":  [".", "./**/.env.development"],
+      "allowWrite": [],
+      "denyWrite":  ["**/.env*", "**/.git/**", "**/node_modules/**", ":external"]
+    }
+  }
 ```
-**/.env*
-**/.git/**
-**/node_modules/**
-```
 
-#### Migrating to the new mode
-
-1. Remove `protectedPatterns` and the `external`/`internal` matrix, then put whichever of the four arrays you need under `fileAccess`.
-2. Omitted arrays use the [new-mode defaults](#defaults); set `"allowWrite": []` explicitly if you want every write to prompt.
-3. Lockdown refuses to start if path lists appear alongside the `fileAccess` matrix or `protectedPatterns`, and names the conflicting keys.
-
-In legacy mode, `/lockdown:session-permissions` keeps its original editor and toggles the `fileAccess` slots (and custom-tool levels) for the session.
-
-## Pi package lookups
-
-Read-only lookups (`read`, `grep`, `find`, and `ls`) inside Pi's installed package directory are always allowed, even when those paths are external or match a protected pattern such as `**/node_modules/**`. This covers Pi's `README.md`, `docs/`, `examples/`, `src/`, and `dist/` as well as the package's bundled dependencies, and lets a search be rooted at the package directory itself. The exception uses Pi's installed package path, not an arbitrary directory named `docs`. Paths outside the package (including through symlinks) are not exempt. Edits, writes, and custom tools still follow the normal permissions.
+`bash` is never activated. `protectedPatterns` is legacy-only and defaults to the three globs shown in the [legacy example](#legacy-file-access-policy-mode).
 
 ## Subagent Profile
 
@@ -261,8 +200,8 @@ Resolution order for a **subagent** process: (1) project `lockdownSubagent`, (2)
 }
 ```
 
-**Updating subagent policy mid-session:** each subagent reads `settings.json` when its own process starts, so the main agent can edit the `lockdownSubagent` block right before dispatching a subagent and the new policy applies to that subagent immediately. There is no need to reload the main agent (it does not read subagent settings) and the main agent's own session policy is unaffected.
-
 ## Headless behavior
 
-In interactive sessions a new-mode file prompt offers **Allow once**, **Allow for this session** and **Block**. **Allow once** allows that call only and persists nothing; **Allow for this session** also adds the requested path to the session lists (`allowRead` for reads, `allowWrite` for edits and writes), so that path stops prompting until `/lockdown:reset` or a new session. Session grants live in the running process, so a subagent process never inherits them. A grant covers the requested path only, while the policy also checks the path's resolved target, so a prompt raised by a symlinked target (for example `/etc/hosts`, which resolves to `/private/etc/hosts`) can repeat even after granting. Legacy and custom-tool prompts keep the two-way **Yes**/**No** confirmation, where **Yes** allows that single call only. In headless sessions (no UI, e.g. subagents in `--mode json`) the confirmation cannot be shown, so any prompt outcome fails closed and blocks.
+In interactive sessions a new-mode file prompt offers **Allow once**, **Allow for this session** and **Block**; legacy and custom-tool prompts offer **Yes** / **No**. **Allow for this session** adds the requested path to `allowRead` for reads (`read`, `grep`, `find`, `ls`) or `allowWrite` for edits and writes, in the same in-memory lists `/lockdown:session-permissions` edits. A grant covers the requested path only and not its resolved target, so a prompt raised by a symlinked target can repeat.
+
+In headless sessions (no UI, e.g. subagents in `--mode json`) the confirmation cannot be shown, so every prompt is treated as block (fail-closed). Session grants live in the running process, so subagents never inherit them.
