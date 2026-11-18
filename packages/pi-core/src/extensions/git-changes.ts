@@ -4,6 +4,9 @@
  * Registers a custom tool `git_changes` that the LLM can call to read the
  * line-by-line staged, unstaged, and untracked git changes in the repository
  * (a superset of `git_staged_changes`, which is left untouched).
+ *
+ * Legacy: prefer `git_inspect` from `git-tools.ts`, which also covers history,
+ * status, branches, remotes, and worktrees. Kept for backward compatibility.
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
@@ -26,6 +29,7 @@ export default function (pi: ExtensionAPI) {
       'untracked paths, is capped at 16000 characters with a command for retrieving truncated output.',
     promptSnippet: 'Read staged, unstaged, and untracked git changes',
     promptGuidelines: [
+      'Prefer git_inspect over the legacy git_changes tool; git_inspect also covers history, status, branches, remotes, and worktrees.',
       'Use git_changes to review everything in the working tree that differs from HEAD in one call: ' +
         'staged diffs, unstaged diffs, and untracked file paths.',
     ],
