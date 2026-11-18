@@ -2,6 +2,10 @@
 
 A repository for DOTC's Pi packages.
 
+## Setup
+
+Refer to [this folder](./setup/) for setup instructions.
+
 ## Packages
 
 | Package                                                             | Description                                                                                                                         |
