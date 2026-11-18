@@ -18,7 +18,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 
 import type { AgentToolResult, ThinkingLevel } from '@earendil-works/pi-agent-core'
-import type { Message } from '@earendil-works/pi-ai'
+import type { Message, Usage } from '@earendil-works/pi-ai'
 import { StringEnum } from '@earendil-works/pi-ai'
 import {
   CONFIG_DIR_NAME,
@@ -214,7 +214,7 @@ function formatUsageStats(
     output: number
     cacheRead: number
     cacheWrite: number
-    cost: number
+    cost: { total: number }
     contextTokens?: number
     turns?: number
   },
@@ -226,7 +226,7 @@ function formatUsageStats(
   if (usage.output) parts.push(`↓${formatTokens(usage.output)}`)
   if (usage.cacheRead) parts.push(`R${formatTokens(usage.cacheRead)}`)
   if (usage.cacheWrite) parts.push(`W${formatTokens(usage.cacheWrite)}`)
-  if (usage.cost) parts.push(`$${usage.cost.toFixed(4)}`)
+  if (usage.cost.total) parts.push(`$${usage.cost.total.toFixed(4)}`)
   if (usage.contextTokens && usage.contextTokens > 0) {
     parts.push(`ctx:${formatTokens(usage.contextTokens)}`)
   }
@@ -305,9 +305,23 @@ interface UsageStats {
   output: number
   cacheRead: number
   cacheWrite: number
-  cost: number
+  cost: Usage['cost']
   contextTokens: number
   turns: number
+  totalTokens: number
+}
+
+function createUsageStats(): UsageStats {
+  return {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    contextTokens: 0,
+    turns: 0,
+    totalTokens: 0,
+  }
 }
 
 interface SingleResult {
@@ -330,6 +344,36 @@ interface SubagentDetails {
   agentScope: AgentScope
   projectAgentsDir: string | null
   results: SingleResult[]
+}
+
+function aggregateUsage(results: SingleResult[]): UsageStats {
+  const total = createUsageStats()
+  for (const r of results) {
+    total.input += r.usage.input
+    total.output += r.usage.output
+    total.cacheRead += r.usage.cacheRead
+    total.cacheWrite += r.usage.cacheWrite
+    total.totalTokens += r.usage.totalTokens
+    total.turns += r.usage.turns
+    total.cost.input += r.usage.cost.input
+    total.cost.output += r.usage.cost.output
+    total.cost.cacheRead += r.usage.cost.cacheRead
+    total.cost.cacheWrite += r.usage.cost.cacheWrite
+    total.cost.total += r.usage.cost.total
+  }
+  return total
+}
+
+/** Report child model usage to the session so its tokens and cost are counted. */
+function toUsage(stats: UsageStats): Usage {
+  return {
+    input: stats.input,
+    output: stats.output,
+    cacheRead: stats.cacheRead,
+    cacheWrite: stats.cacheWrite,
+    totalTokens: stats.totalTokens,
+    cost: stats.cost,
+  }
 }
 
 function getFinalOutput(messages: Message[]): string {
@@ -459,7 +503,7 @@ async function runSingleAgent(
       exitCode: 1,
       messages: [],
       stderr: `Unknown agent: "${agentName}". Available agents: ${available}.`,
-      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+      usage: createUsageStats(),
       step,
     }
   }
@@ -481,7 +525,7 @@ async function runSingleAgent(
     exitCode: 0,
     messages: [],
     stderr: '',
-    usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+    usage: createUsageStats(),
     model,
     step,
   }
@@ -537,7 +581,12 @@ async function runSingleAgent(
               currentResult.usage.output += usage.output || 0
               currentResult.usage.cacheRead += usage.cacheRead || 0
               currentResult.usage.cacheWrite += usage.cacheWrite || 0
-              currentResult.usage.cost += usage.cost?.total || 0
+              currentResult.usage.totalTokens += usage.totalTokens || 0
+              currentResult.usage.cost.input += usage.cost?.input || 0
+              currentResult.usage.cost.output += usage.cost?.output || 0
+              currentResult.usage.cost.cacheRead += usage.cost?.cacheRead || 0
+              currentResult.usage.cost.cacheWrite += usage.cost?.cacheWrite || 0
+              currentResult.usage.cost.total += usage.cost?.total || 0
               currentResult.usage.contextTokens = usage.totalTokens || 0
             }
             if (currentResult.usage.turns === 1) {
@@ -781,6 +830,7 @@ export default function (pi: ExtensionAPI) {
             return {
               content: [{ type: 'text', text: `Chain stopped at step ${i + 1} (${step.agent}): ${errorMsg}` }],
               details: makeDetails('chain')(results),
+              usage: toUsage(aggregateUsage(results)),
               isError: true,
             }
           }
@@ -791,6 +841,7 @@ export default function (pi: ExtensionAPI) {
         return {
           content: [{ type: 'text', text: finalOutput || '(no output)' }],
           details: makeDetails('chain')(results),
+          usage: toUsage(aggregateUsage(results)),
         }
       }
 
@@ -818,7 +869,7 @@ export default function (pi: ExtensionAPI) {
             exitCode: -1, // -1 = still running
             messages: [],
             stderr: '',
-            usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+            usage: createUsageStats(),
           }
         }
 
@@ -873,6 +924,7 @@ export default function (pi: ExtensionAPI) {
             },
           ],
           details: makeDetails('parallel')(results),
+          usage: toUsage(aggregateUsage(results)),
         }
       }
 
@@ -895,12 +947,14 @@ export default function (pi: ExtensionAPI) {
           return {
             content: [{ type: 'text', text: `Agent ${result.stopReason || 'failed'}: ${errorMsg}` }],
             details: makeDetails('single')([result]),
+            usage: toUsage(result.usage),
             isError: true,
           }
         }
         return {
           content: [{ type: 'text', text: getFinalOutput(result.messages) || '(no output)' }],
           details: makeDetails('single')([result]),
+          usage: toUsage(result.usage),
         }
       }
 
@@ -1032,19 +1086,6 @@ export default function (pi: ExtensionAPI) {
         const usageStr = [formatUsageStats(r.usage, r.model), r.thinkingLevel].filter(Boolean).join(' ')
         if (usageStr) text += `\n${theme.fg('dim', usageStr)}`
         return new Text(text, 0, 0)
-      }
-
-      const aggregateUsage = (results: SingleResult[]) => {
-        const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 }
-        for (const r of results) {
-          total.input += r.usage.input
-          total.output += r.usage.output
-          total.cacheRead += r.usage.cacheRead
-          total.cacheWrite += r.usage.cacheWrite
-          total.cost += r.usage.cost
-          total.turns += r.usage.turns
-        }
-        return total
       }
 
       if (details.mode === 'chain') {
