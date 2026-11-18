@@ -1,6 +1,6 @@
 {
   "packages": [
-    "npm:@chrischow/pi-lockdown",
+    "npm:@dotc/pi-lockdown",
     "npm:@plannotator/pi-extension",
     "npm:@dotc/pi-platform-ai-provider",
     "npm:@dotc/pi-core"
