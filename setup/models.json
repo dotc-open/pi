@@ -1,0 +1,335 @@
+{
+  "providers": {
+    "lmstudio": {
+      "baseUrl": "http://localhost:1234/v1",
+      "api": "openai-completions",
+      "apiKey": "lm-studio",
+      "models": [
+        {
+          "id": "qwen/qwen3.6-35b-a3b",
+          "contextWindow": 49152,
+          "input": ["text", "image"]
+        },
+        {
+          "id": "google/gemma-4-26b-a4b-qat",
+          "contextWindow": 49152,
+          "input": ["text"]
+        }
+      ]
+    },
+    "platform-ai": {
+      "baseUrl": "https://api.ai.tech.gov.sg/platform/models",
+      "api": "openai-completions",
+      "models": [
+        {
+          "id": "gemini-3.8-flash",
+          "name": "Gemini 3.8 Flash",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": null,
+            "max": null
+          },
+          "cost": {
+            "input": 0.75,
+            "output": 3.75,
+            "cacheRead": 0.075,
+            "cacheWrite": 0
+          },
+          "contextWindow": 1048576,
+          "maxTokens": 64000
+        },
+        {
+          "id": "azure.claude-haiku-5-5",
+          "name": "Haiku 5.5 - Azure",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 0.1,
+            "output": 0.5,
+            "cacheRead": 0.01,
+            "cacheWrite": 0.125
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 64000,
+          "compat": { "cacheControlFormat": "anthropic" }
+        },
+        {
+          "id": "bedrock.claude-haiku-5-5",
+          "name": "Haiku 5.5 - Bedrock",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 0.1,
+            "output": 0.5,
+            "cacheRead": 0.01,
+            "cacheWrite": 0.125
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 64000,
+          "compat": { "cacheControlFormat": "anthropic" }
+        },
+        {
+          "id": "vertex_ai.claude-haiku-5-5",
+          "name": "Haiku 5.5 - Vertex AI",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 0.1,
+            "output": 0.5,
+            "cacheRead": 0.01,
+            "cacheWrite": 0.125
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 64000,
+          "compat": { "cacheControlFormat": "anthropic" }
+        },
+        {
+          "id": "azure.claude-sonnet-5-5",
+          "name": "Sonnet 5.5 - Azure",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cacheRead": 0.2,
+            "cacheWrite": 2.5
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 64000,
+          "compat": { "cacheControlFormat": "anthropic" }
+        },
+        {
+          "id": "bedrock.claude-sonnet-5-5",
+          "name": "Sonnet 5.5 - Bedrock",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cacheRead": 0.2,
+            "cacheWrite": 2.5
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 64000,
+          "compat": { "cacheControlFormat": "anthropic" }
+        },
+        {
+          "id": "vertex_ai.claude-sonnet-5-5",
+          "name": "Sonnet 5.5 - Vertex AI",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cacheRead": 0.2,
+            "cacheWrite": 2.5
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 64000,
+          "compat": { "cacheControlFormat": "anthropic" }
+        },
+        {
+          "id": "azure.claude-opus-5-5",
+          "name": "Opus 5.5 - Azure",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 4,
+            "output": 20,
+            "cacheRead": 0.2,
+            "cacheWrite": 5
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 64000,
+          "compat": { "cacheControlFormat": "anthropic" }
+        },
+        {
+          "id": "bedrock.claude-opus-5-5",
+          "name": "Opus 5.5 - Bedrock",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 4,
+            "output": 20,
+            "cacheRead": 0.2,
+            "cacheWrite": 5
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 64000,
+          "compat": { "cacheControlFormat": "anthropic" }
+        },
+        {
+          "id": "vertex_ai.claude-opus-5-5",
+          "name": "Opus 5.5 - Vertex AI",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 4,
+            "output": 20,
+            "cacheRead": 0.2,
+            "cacheWrite": 5
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 64000,
+          "compat": { "cacheControlFormat": "anthropic" }
+        },
+        {
+          "id": "bedrock.gpt-6-luna",
+          "name": "GPT-6 Luna - Bedrock",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": "none",
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 0.1,
+            "output": 0.5,
+            "cacheRead": 0.01,
+            "cacheWrite": 0.125
+          },
+          "contextWindow": 1050000,
+          "maxTokens": 64000
+        },
+        {
+          "id": "bedrock.gpt-6-sol",
+          "name": "GPT-6 Sol - Bedrock",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": "none",
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": null
+          },
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cacheRead": 0.2,
+            "cacheWrite": 2.5
+          },
+          "contextWindow": 1050000,
+          "maxTokens": 64000
+        },
+        {
+          "id": "bedrock.gpt-6.1-sol",
+          "name": "GPT-6.1 Sol - Bedrock",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": {
+            "off": "none",
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cacheRead": 0.1,
+            "cacheWrite": 2.5
+          },
+          "contextWindow": 1050000,
+          "maxTokens": 64000
+        }
+      ]
+    }
+  }
+}
