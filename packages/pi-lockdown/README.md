@@ -26,6 +26,8 @@ If you need to amend settings for the session:
 
 **Note:** Changes made through `/lockdown:session-permissions` apply immediately and last for the current session only — they are never written to `settings.json`. `/lockdown:reset` discards them.
 
+In new mode the dialog is a chooser over the four path lists and `customTools`. On the tool-levels page, `Space` cycles `allow` / `warn` / `block`, `Del` flags a tool for deletion, and typing a name adds it at `warn`. Adding or deleting a tool also updates the active tool set for the session.
+
 ## What It Does
 
 When you start Pi, Lockdown automatically sets the tools configured under the `defaultTools` and `customTools` properties in your settings.

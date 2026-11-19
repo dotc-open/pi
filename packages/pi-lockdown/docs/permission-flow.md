@@ -104,5 +104,5 @@ flowchart LR
 
 - `bash` is blocked outright and never reaches the policy.
 - `write` calls with empty content are blocked as a soft-delete guard.
-- Custom tools never use the path policy; they use their `customTools` level.
+- Custom tools never use the path policy; they use their `customTools` level, edited from the same `/lockdown:session-permissions` menu.
 - Legacy configs (the `external` / `internal` matrix) run the old engine and its `warn` prompts. See the package README.
