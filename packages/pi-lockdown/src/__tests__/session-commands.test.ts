@@ -208,7 +208,7 @@ describe('list chooser', () => {
 describe('tool level editor', () => {
   const render = (component: Component) => component.render(80).join('\n')
 
-  it('cycles a level forward with space and saves', () => {
+  it('toggles a level forward with space and saves', () => {
     const done = vi.fn()
     const editor = createToolLevelEditor(
       toolEntries({ subagent: 'warn' }),
@@ -226,10 +226,28 @@ describe('tool level editor', () => {
     expect(done).toHaveBeenCalledWith({ subagent: 'block' })
   })
 
-  it('cycles a level on enter and wraps block to allow', () => {
+  it('toggles block back around to allow', () => {
     const done = vi.fn()
     const editor = createToolLevelEditor(
-      toolEntries({ shadcn_search: 'allow' }),
+      toolEntries({ shadcn_search: 'block' }),
+      [],
+      fakeTheme(),
+      { requestRender: vi.fn() },
+      done,
+    )
+
+    editor.handleInput?.(UP)
+    editor.handleInput?.(SPACE)
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(ENTER)
+
+    expect(done).toHaveBeenCalledWith({ shadcn_search: 'allow' })
+  })
+
+  it('saves on enter even while a row is selected', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor(
+      toolEntries({ subagent: 'warn' }),
       [],
       fakeTheme(),
       { requestRender: vi.fn() },
@@ -238,10 +256,8 @@ describe('tool level editor', () => {
 
     editor.handleInput?.(UP)
     editor.handleInput?.(ENTER)
-    editor.handleInput?.(DOWN)
-    editor.handleInput?.(ENTER)
 
-    expect(done).toHaveBeenCalledWith({ shadcn_search: 'warn' })
+    expect(done).toHaveBeenCalledWith({ subagent: 'warn' })
   })
 
   it('flags a row for deletion and saves without it', () => {
@@ -259,8 +275,6 @@ describe('tool level editor', () => {
     editor.handleInput?.(DELETE)
     expect(render(editor)).toContain('[delete]')
 
-    editor.handleInput?.(DOWN)
-    editor.handleInput?.(DOWN)
     editor.handleInput?.(ENTER)
 
     expect(done).toHaveBeenCalledWith({ current_date: 'allow' })
@@ -279,7 +293,6 @@ describe('tool level editor', () => {
     editor.handleInput?.(UP)
     editor.handleInput?.(DELETE)
     editor.handleInput?.(DELETE)
-    editor.handleInput?.(DOWN)
     editor.handleInput?.(ENTER)
 
     expect(done).toHaveBeenCalledWith({ subagent: 'warn' })
@@ -344,6 +357,25 @@ describe('tool level editor', () => {
     expect(done).toHaveBeenCalledWith({ subagent: 'block', current_date: 'warn' })
   })
 
+  it('navigates the suggestion list with the arrow keys', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor(
+      [],
+      ['current_date', 'custom_tool'],
+      fakeTheme(),
+      { requestRender: vi.fn() },
+      done,
+    )
+
+    for (const character of 'cu') editor.handleInput?.(character)
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(TAB)
+    editor.handleInput?.(ENTER)
+    editor.handleInput?.(ENTER)
+
+    expect(done).toHaveBeenCalledWith({ custom_tool: 'warn' })
+  })
+
   it('returns undefined on escape without saving', () => {
     const done = vi.fn()
     const editor = createToolLevelEditor(
@@ -363,6 +395,7 @@ describe('tool level editor', () => {
   it('switches the hint between save and add', () => {
     const editor = createToolLevelEditor([], [], fakeTheme(), { requestRender: vi.fn() }, vi.fn())
 
+    expect(render(editor)).toContain('Space toggle')
     expect(render(editor)).toContain('Enter save • Esc cancel')
     editor.handleInput?.('a')
     expect(render(editor)).toContain('Enter add • Esc cancel')

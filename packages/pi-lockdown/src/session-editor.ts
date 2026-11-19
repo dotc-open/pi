@@ -375,6 +375,8 @@ export function createToolLevelEditor(
   const input = new Input()
 
   let index = rows.length
+  let suggestions: string[] = []
+  let suggestionIndex = 0
   let error: string | undefined
   let cached: string[] | undefined
 
@@ -383,7 +385,7 @@ export function createToolLevelEditor(
     host.requestRender()
   }
 
-  const cycle = (level: LockdownLevel): LockdownLevel => levels[(levels.indexOf(level) + 1) % levels.length] ?? level
+  const toggle = (level: LockdownLevel): LockdownLevel => levels[(levels.indexOf(level) + 1) % levels.length] ?? level
 
   const result = (): Record<string, LockdownLevel> => {
     const next: Record<string, LockdownLevel> = {}
@@ -393,15 +395,24 @@ export function createToolLevelEditor(
     return next
   }
 
-  // Local prefix completion over the session's real tool names.
-  const completeName = () => {
-    const typed = input.getValue().trim()
-    if (typed.length === 0) return
+  // Local prefix completion over the session's real tool names, shown like the
+  // path editor's filesystem suggestions.
+  const refreshSuggestions = () => {
+    const typed = input.getValue().trim().toLowerCase()
     const configured = new Set(rows.map((row) => row.name))
-    const match = knownTools.find((name) => !configured.has(name) && name.toLowerCase().startsWith(typed.toLowerCase()))
+    suggestions =
+      typed.length === 0
+        ? []
+        : knownTools.filter((name) => !configured.has(name) && name.toLowerCase().startsWith(typed))
+    suggestionIndex = 0
+  }
+
+  const applySuggestion = () => {
+    const match = suggestions[suggestionIndex]
     if (!match) return
     input.setValue(match)
     input.handleInput(END_KEY)
+    suggestions = []
     error = undefined
     refresh()
   }
@@ -420,6 +431,7 @@ export function createToolLevelEditor(
     }
     rows.push({ name, level: 'warn', deleted: false })
     input.setValue('')
+    suggestions = []
     error = undefined
     index = rows.length
     refresh()
@@ -465,52 +477,76 @@ export function createToolLevelEditor(
       if (start > 0 || end < totalRows) {
         lines.push(theme.fg('dim', `  (${index + 1}/${totalRows})`))
       }
+
+      if (index === rows.length && suggestions.length > 0) {
+        suggestions.slice(0, MAX_SUGGESTIONS).forEach((name, i) => {
+          lines.push(truncateToWidth(`  ${theme.fg(i === suggestionIndex ? 'accent' : 'dim', name)}`, width, ''))
+        })
+      }
+
       if (error) lines.push(theme.fg('error', error))
       const hasText = input.getValue().trim().length > 0
       lines.push('')
       lines.push(
-        theme.fg('dim', `↑↓ navigate • Space cycle • Del flag • Enter ${hasText ? 'add' : 'save'} • Esc cancel`),
+        theme.fg('dim', `↑↓ navigate • Space toggle • Del flag • Enter ${hasText ? 'add' : 'save'} • Esc cancel`),
       )
       cached = lines
       return lines
     },
     handleInput(data) {
       if (matchesKey(data, Key.escape)) {
+        if (suggestions.length > 0) {
+          suggestions = []
+          refresh()
+          return
+        }
         done(undefined)
         return
       }
 
+      if (index === rows.length && suggestions.length > 0) {
+        if (matchesKey(data, Key.up)) {
+          suggestionIndex = (suggestionIndex - 1 + suggestions.length) % suggestions.length
+          refresh()
+          return
+        }
+        if (matchesKey(data, Key.down)) {
+          suggestionIndex = (suggestionIndex + 1) % suggestions.length
+          refresh()
+          return
+        }
+        if (matchesKey(data, Key.tab)) {
+          applySuggestion()
+          return
+        }
+      }
+
       if (matchesKey(data, Key.up)) {
         index = Math.max(0, index - 1)
+        suggestions = []
         refresh()
         return
       }
       if (matchesKey(data, Key.down)) {
         index = Math.min(rows.length, index + 1)
+        suggestions = []
         refresh()
         return
       }
 
       if (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) {
-        if (input.getValue().trim().length > 0) {
-          commitInput()
+        if (input.getValue().trim().length === 0) {
+          done(result())
           return
         }
-        // Enter on a row cycles its level, so the page works without a space bar.
-        if (index < rows.length) {
-          const row = rows[index]
-          if (row) row.level = cycle(row.level)
-          refresh()
-          return
-        }
-        done(result())
+        commitInput()
         return
       }
 
       if (index < rows.length) {
         const row = rows[index]
         if (matchesKey(data, Key.space)) {
-          if (row) row.level = cycle(row.level)
+          if (row) row.level = toggle(row.level)
           refresh()
           return
         }
@@ -522,12 +558,13 @@ export function createToolLevelEditor(
       }
 
       if (matchesKey(data, Key.tab)) {
-        completeName()
+        applySuggestion()
         return
       }
 
       input.handleInput(data)
       error = undefined
+      refreshSuggestions()
       refresh()
     },
   }
