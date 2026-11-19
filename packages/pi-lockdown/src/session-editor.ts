@@ -36,12 +36,16 @@ export function applyListEdits(entries: readonly string[], result: ListEditResul
   return next
 }
 
-/** First screen: pick one of the four lists, showing its entries inline. */
+/** The four path lists, then the session tool levels. */
+export const SESSION_ROW_IDS = [...PATH_POLICY_KEYS, 'customTools'] as const
+export type SessionRowId = (typeof SESSION_ROW_IDS)[number]
+
+/** First screen: pick a list to edit, showing its entries inline. */
 export function createListChooser(
   settings: PathPolicySettings,
   theme: Theme,
   host: RenderHost,
-  done: (key: PathPolicyKey | undefined) => void,
+  done: (key: SessionRowId | undefined) => void,
 ): Component {
   let index = 0
   let cached: string[] | undefined
@@ -62,12 +66,18 @@ export function createListChooser(
         theme.fg('dim', 'Choose a list to edit.'),
         '',
       ]
-      PATH_POLICY_KEYS.forEach((key, i) => {
+      SESSION_ROW_IDS.forEach((key, i) => {
         const selected = i === index
         const prefix = selected ? '→ ' : '  '
-        const label = `${key} (${settings[key].length})`
+        const count = key === 'customTools' ? Object.keys(settings.customTools).length : settings[key].length
+        const label = `${key} (${count})`
         let line = prefix + theme.fg(selected ? 'accent' : 'text', label)
-        const detail = settings[key].join(', ')
+        const detail =
+          key === 'customTools'
+            ? Object.entries(settings.customTools)
+                .map(([name, level]) => `${name}=${level}`)
+                .join(', ')
+            : settings[key].join(', ')
         const detailWidth = width - visibleWidth(prefix) - visibleWidth(label) - 2
         if (detail && detailWidth > 4) {
           line += `  ${theme.fg('dim', truncateToWidth(detail, detailWidth, '...'))}`
@@ -81,17 +91,17 @@ export function createListChooser(
     },
     handleInput(data) {
       if (matchesKey(data, Key.up)) {
-        index = (index - 1 + PATH_POLICY_KEYS.length) % PATH_POLICY_KEYS.length
+        index = (index - 1 + SESSION_ROW_IDS.length) % SESSION_ROW_IDS.length
         refresh()
         return
       }
       if (matchesKey(data, Key.down)) {
-        index = (index + 1) % PATH_POLICY_KEYS.length
+        index = (index + 1) % SESSION_ROW_IDS.length
         refresh()
         return
       }
       if (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) {
-        done(PATH_POLICY_KEYS[index])
+        done(SESSION_ROW_IDS[index])
         return
       }
       if (matchesKey(data, Key.escape)) {
@@ -342,10 +352,11 @@ export async function configureNewModeSession(ctx: ExtensionContext, settings: P
   }
 
   while (true) {
-    const key = await ctx.ui.custom<PathPolicyKey | undefined>((tui, theme, _kb, done) =>
+    const key = await ctx.ui.custom<SessionRowId | undefined>((tui, theme, _kb, done) =>
       createListChooser(settings, theme, tui, done),
     )
     if (key === undefined) return
+    if (key === 'customTools') continue
 
     const result = await ctx.ui.custom<ListEditResult | undefined>((tui, theme, _kb, done) =>
       createListEditor(key, settings[key], ctx.cwd, theme, tui, done),
