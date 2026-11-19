@@ -491,9 +491,25 @@ export function createToolLevelEditor(
         return
       }
 
+      if (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) {
+        if (input.getValue().trim().length > 0) {
+          commitInput()
+          return
+        }
+        // Enter on a row cycles its level, so the page works without a space bar.
+        if (index < rows.length) {
+          const row = rows[index]
+          if (row) row.level = cycle(row.level)
+          refresh()
+          return
+        }
+        done(result())
+        return
+      }
+
       if (index < rows.length) {
         const row = rows[index]
-        if (matchesKey(data, Key.enter) || matchesKey(data, Key.return) || matchesKey(data, Key.space)) {
+        if (matchesKey(data, Key.space)) {
           if (row) row.level = cycle(row.level)
           refresh()
           return
@@ -507,14 +523,6 @@ export function createToolLevelEditor(
 
       if (matchesKey(data, Key.tab)) {
         completeName()
-        return
-      }
-      if (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) {
-        if (input.getValue().trim().length === 0) {
-          done(result())
-          return
-        }
-        commitInput()
         return
       }
 

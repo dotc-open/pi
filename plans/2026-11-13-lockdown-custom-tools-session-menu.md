@@ -49,7 +49,7 @@ After **each step**, run code quality checks (`lint:fix`, `format:fix`, `check-t
 - [x] Chooser: add the `customTools` row (with level summary) as the last entry, widen `done` to `SessionRowId`, keep the four path rows working.
 - [x] `createToolLevelEditor`: level cycling, flagged deletion, trailing-name add with validation + known-name completion, save on empty Enter, cancel on Esc, windowing and hints.
 - [x] Wire it into `configureNewModeSession` (cancel returns to the chooser, save closes the command) with diff-based notifications; pass known tool names from `index.ts` and re-apply active tools on return.
-- [ ] Tests: chooser row and count, cycle/flag-delete/add/validation/duplicate, save and cancel semantics, active-tool refresh, end-to-end through `tool_call` (set a custom tool to `allow` → call allowed; set to `block` → blocked; delete → falls back to `warn`), plus `/lockdown:reset` restoring the configured levels.
+- [x] Tests: chooser row and count, cycle/flag-delete/add/validation/duplicate, save and cancel semantics, active-tool refresh, end-to-end through `tool_call` (set a custom tool to `allow` → call allowed; set to `block` → blocked; delete → falls back to `warn`), plus `/lockdown:reset` restoring the configured levels.
 - [ ] Docs: README session-commands section and the one-line note in `docs/permission-flow.md`.
 
 ## Verification

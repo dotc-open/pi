@@ -23,8 +23,8 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 }))
 
 import lockdownExtension from '../index'
-import type { PathPolicySettings } from '../schema'
-import { applyListEdits, createListChooser, createListEditor } from '../session-editor'
+import type { LockdownLevel, PathPolicySettings } from '../schema'
+import { applyListEdits, createListChooser, createListEditor, createToolLevelEditor } from '../session-editor'
 
 type Handler = (event: unknown, ctx: unknown) => unknown
 type CommandHandler = (args: unknown, ctx: unknown) => Promise<unknown>
@@ -35,6 +35,9 @@ const ENTER = '\r'
 const ESCAPE = '\x1b'
 const DELETE = '\x1b[3~'
 const TAB = '\t'
+const SPACE = ' '
+
+const toolEntries = (entries: Record<string, LockdownLevel>): [string, LockdownLevel][] => Object.entries(entries)
 
 function fakeTheme() {
   return {
@@ -176,6 +179,205 @@ describe('list chooser', () => {
 
     chooser.handleInput?.(ESCAPE)
     expect(done).toHaveBeenCalledWith(undefined)
+  })
+
+  it('shows the customTools row last with its levels', () => {
+    const chooser = createListChooser(
+      policySettings({ customTools: { subagent: 'block', shadcn_search: 'allow' } }),
+      fakeTheme(),
+      { requestRender: vi.fn() },
+      vi.fn(),
+    )
+
+    const rendered = chooser.render(80).join('\n')
+    expect(rendered).toContain('customTools (2)')
+    expect(rendered).toContain('subagent=block, shadcn_search=allow')
+  })
+
+  it('selects the customTools row after the four path lists', () => {
+    const done = vi.fn()
+    const chooser = createListChooser(policySettings(), fakeTheme(), { requestRender: vi.fn() }, done)
+
+    for (let i = 0; i < 4; i += 1) chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    expect(done).toHaveBeenCalledWith('customTools')
+  })
+})
+
+describe('tool level editor', () => {
+  const render = (component: Component) => component.render(80).join('\n')
+
+  it('cycles a level forward with space and saves', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor(
+      toolEntries({ subagent: 'warn' }),
+      [],
+      fakeTheme(),
+      { requestRender: vi.fn() },
+      done,
+    )
+
+    editor.handleInput?.(UP)
+    editor.handleInput?.(SPACE)
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(ENTER)
+
+    expect(done).toHaveBeenCalledWith({ subagent: 'block' })
+  })
+
+  it('cycles a level on enter and wraps block to allow', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor(
+      toolEntries({ shadcn_search: 'allow' }),
+      [],
+      fakeTheme(),
+      { requestRender: vi.fn() },
+      done,
+    )
+
+    editor.handleInput?.(UP)
+    editor.handleInput?.(ENTER)
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(ENTER)
+
+    expect(done).toHaveBeenCalledWith({ shadcn_search: 'warn' })
+  })
+
+  it('flags a row for deletion and saves without it', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor(
+      toolEntries({ subagent: 'warn', current_date: 'allow' }),
+      [],
+      fakeTheme(),
+      { requestRender: vi.fn() },
+      done,
+    )
+
+    editor.handleInput?.(UP)
+    editor.handleInput?.(UP)
+    editor.handleInput?.(DELETE)
+    expect(render(editor)).toContain('[delete]')
+
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(ENTER)
+
+    expect(done).toHaveBeenCalledWith({ current_date: 'allow' })
+  })
+
+  it('toggles the deletion flag off on a second press', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor(
+      toolEntries({ subagent: 'warn' }),
+      [],
+      fakeTheme(),
+      { requestRender: vi.fn() },
+      done,
+    )
+
+    editor.handleInput?.(UP)
+    editor.handleInput?.(DELETE)
+    editor.handleInput?.(DELETE)
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(ENTER)
+
+    expect(done).toHaveBeenCalledWith({ subagent: 'warn' })
+  })
+
+  it('adds a typed tool at warn and keeps the row for another add', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor([], [], fakeTheme(), { requestRender: vi.fn() }, done)
+
+    for (const character of 'nest_generate') editor.handleInput?.(character)
+    editor.handleInput?.(ENTER)
+    for (const character of 'subagent') editor.handleInput?.(character)
+    editor.handleInput?.(ENTER)
+    editor.handleInput?.(ENTER)
+
+    expect(done).toHaveBeenCalledWith({ nest_generate: 'warn', subagent: 'warn' })
+  })
+
+  it('rejects an invalid tool name inline', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor([], [], fakeTheme(), { requestRender: vi.fn() }, done)
+
+    for (const character of 'bad name') editor.handleInput?.(character)
+    editor.handleInput?.(ENTER)
+
+    expect(done).not.toHaveBeenCalled()
+    expect(render(editor)).toContain('letters, numbers, underscores and dashes')
+  })
+
+  it('rejects a duplicate tool name inline', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor(
+      toolEntries({ subagent: 'warn' }),
+      [],
+      fakeTheme(),
+      { requestRender: vi.fn() },
+      done,
+    )
+
+    for (const character of 'subagent') editor.handleInput?.(character)
+    editor.handleInput?.(ENTER)
+
+    expect(done).not.toHaveBeenCalled()
+    expect(render(editor)).toContain('already configured')
+  })
+
+  it('completes the typed name from known tools, skipping configured ones', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor(
+      toolEntries({ subagent: 'block' }),
+      ['subagent', 'current_date'],
+      fakeTheme(),
+      { requestRender: vi.fn() },
+      done,
+    )
+
+    for (const character of 'cur') editor.handleInput?.(character)
+    editor.handleInput?.(TAB)
+    editor.handleInput?.(ENTER)
+    editor.handleInput?.(ENTER)
+
+    expect(done).toHaveBeenCalledWith({ subagent: 'block', current_date: 'warn' })
+  })
+
+  it('returns undefined on escape without saving', () => {
+    const done = vi.fn()
+    const editor = createToolLevelEditor(
+      toolEntries({ subagent: 'warn' }),
+      [],
+      fakeTheme(),
+      { requestRender: vi.fn() },
+      done,
+    )
+
+    editor.handleInput?.('x')
+    editor.handleInput?.(ESCAPE)
+
+    expect(done).toHaveBeenCalledWith(undefined)
+  })
+
+  it('switches the hint between save and add', () => {
+    const editor = createToolLevelEditor([], [], fakeTheme(), { requestRender: vi.fn() }, vi.fn())
+
+    expect(render(editor)).toContain('Enter save • Esc cancel')
+    editor.handleInput?.('a')
+    expect(render(editor)).toContain('Enter add • Esc cancel')
+  })
+
+  it('windows long lists and shows the scroll position', () => {
+    const entries = toolEntries(
+      Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`tool${i}`, 'warn' as LockdownLevel])),
+    )
+    const editor = createToolLevelEditor(entries, [], fakeTheme(), { requestRender: vi.fn() }, vi.fn())
+
+    const rendered = render(editor)
+    expect(rendered).not.toContain('tool0')
+    expect(rendered).toContain('tool19')
+    expect(rendered).toContain('(21/21)')
   })
 })
 
@@ -333,6 +535,147 @@ describe('new-mode session permissions', () => {
       reason: '[LOCKDOWN] Action blocked by user.',
     })
   })
+
+  it('adds a custom tool at warn and activates it immediately', async () => {
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall, setActiveTools } = setup({ fileAccess: {} }, { custom })
+
+    const run = sessionPermissions(undefined, ctx)
+
+    const chooser = await nextComponent(components, 1)
+    for (let i = 0; i < 4; i += 1) chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    for (const character of 'nest_generate') editor.handleInput?.(character)
+    editor.handleInput?.(ENTER) // add at warn
+    editor.handleInput?.(ENTER) // save
+    await run
+
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining('Added "nest_generate" to customTools at warn.'),
+      'info',
+    )
+    expect(setActiveTools).toHaveBeenLastCalledWith(['read', 'edit', 'write', 'grep', 'find', 'ls', 'nest_generate'])
+
+    ctx.ui.select = vi.fn().mockResolvedValue('No')
+    expect(await toolCall({ toolName: 'nest_generate', input: {} }, ctx)).toMatchObject({
+      block: true,
+      reason: '[LOCKDOWN] Action blocked by user.',
+    })
+    ctx.ui.select = vi.fn().mockResolvedValue('Yes')
+    expect(await toolCall({ toolName: 'nest_generate', input: {} }, ctx)).toBeUndefined()
+  })
+
+  it('sets an existing custom tool to allow and applies it immediately', async () => {
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall } = setup(
+      { customTools: { nest_generate: 'warn' }, fileAccess: {} },
+      { custom },
+    )
+
+    const run = sessionPermissions(undefined, ctx)
+    const chooser = await nextComponent(components, 1)
+    for (let i = 0; i < 4; i += 1) chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    editor.handleInput?.(UP)
+    editor.handleInput?.(SPACE) // warn -> block
+    editor.handleInput?.(SPACE) // block -> allow
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(ENTER)
+    await run
+
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining('Set "nest_generate" to allow in customTools.'),
+      'info',
+    )
+    expect(await toolCall({ toolName: 'nest_generate', input: {} }, ctx)).toBeUndefined()
+  })
+
+  it('blocks a custom tool set to block', async () => {
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall } = setup(
+      { customTools: { nest_generate: 'warn' }, fileAccess: {} },
+      { custom },
+    )
+
+    const run = sessionPermissions(undefined, ctx)
+    const chooser = await nextComponent(components, 1)
+    for (let i = 0; i < 4; i += 1) chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    editor.handleInput?.(UP)
+    editor.handleInput?.(SPACE) // warn -> block
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(ENTER)
+    await run
+
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining('Set "nest_generate" to block in customTools.'),
+      'info',
+    )
+    expect(await toolCall({ toolName: 'nest_generate', input: {} }, ctx)).toMatchObject({ block: true })
+  })
+
+  it('falls back to warn after deleting a custom tool', async () => {
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall, setActiveTools } = setup(
+      { customTools: { nest_generate: 'allow' }, fileAccess: {} },
+      { custom },
+    )
+
+    const run = sessionPermissions(undefined, ctx)
+    const chooser = await nextComponent(components, 1)
+    for (let i = 0; i < 4; i += 1) chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    editor.handleInput?.(UP)
+    editor.handleInput?.(DELETE)
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(ENTER)
+    await run
+
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining('Removed "nest_generate" from customTools.'),
+      'info',
+    )
+    expect(setActiveTools).toHaveBeenLastCalledWith(['read', 'edit', 'write', 'grep', 'find', 'ls'])
+
+    ctx.ui.select = vi.fn().mockResolvedValue('No')
+    expect(await toolCall({ toolName: 'nest_generate', input: {} }, ctx)).toMatchObject({
+      block: true,
+      reason: '[LOCKDOWN] Action blocked by user.',
+    })
+    ctx.ui.select = vi.fn().mockResolvedValue('Yes')
+    expect(await toolCall({ toolName: 'nest_generate', input: {} }, ctx)).toBeUndefined()
+  })
+
+  it('returns to the chooser when the tool editor is cancelled', async () => {
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall } = setup(
+      { customTools: { nest_generate: 'block' }, fileAccess: {} },
+      { custom },
+    )
+
+    const run = sessionPermissions(undefined, ctx)
+    const chooser = await nextComponent(components, 1)
+    for (let i = 0; i < 4; i += 1) chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    editor.handleInput?.(ESCAPE)
+
+    const closing = await nextComponent(components, 3)
+    closing.handleInput?.(ESCAPE)
+    await run
+
+    expect(ctx.ui.notify).not.toHaveBeenCalledWith(expect.stringContaining('customTools'), 'info')
+    expect(await toolCall({ toolName: 'nest_generate', input: {} }, ctx)).toMatchObject({ block: true })
+  })
 })
 
 describe('lockdown:reset', () => {
@@ -360,6 +703,31 @@ describe('lockdown:reset', () => {
 
     ctx.ui.select = vi.fn().mockResolvedValue('No')
     expect(await writeFile(toolCall, ctx, 'tmp/session.txt')).toMatchObject({ block: true })
+  })
+
+  it('restores configured tool levels after session edits', async () => {
+    const { custom, components } = createCustomDriver()
+    const { ctx, sessionPermissions, toolCall, reset } = setup(
+      { customTools: { nest_generate: 'block' }, fileAccess: {} },
+      { custom },
+    )
+
+    const run = sessionPermissions(undefined, ctx)
+    const chooser = await nextComponent(components, 1)
+    for (let i = 0; i < 4; i += 1) chooser.handleInput?.(DOWN)
+    chooser.handleInput?.(ENTER)
+
+    const editor = await nextComponent(components, 2)
+    editor.handleInput?.(UP)
+    editor.handleInput?.(SPACE) // block -> allow
+    editor.handleInput?.(DOWN)
+    editor.handleInput?.(ENTER)
+    await run
+    expect(await toolCall({ toolName: 'nest_generate', input: {} }, ctx)).toBeUndefined()
+
+    await reset(undefined, ctx)
+
+    expect(await toolCall({ toolName: 'nest_generate', input: {} }, ctx)).toMatchObject({ block: true })
   })
 })
 
