@@ -10,7 +10,14 @@ import {
   visibleWidth,
 } from '@earendil-works/pi-tui'
 
-import { PATH_POLICY_KEYS, PathEntrySchema, type PathPolicyKey, type PathPolicySettings } from './schema'
+import {
+  type LockdownLevel,
+  LockdownLevelSchema,
+  PATH_POLICY_KEYS,
+  PathEntrySchema,
+  type PathPolicyKey,
+  type PathPolicySettings,
+} from './schema'
 
 const MAX_SUGGESTIONS = 8
 const MAX_VISIBLE_ROWS = 10
@@ -338,6 +345,182 @@ export function createListEditor(
       error = undefined
       refresh()
       void refreshSuggestions()
+    },
+  }
+
+  return component
+}
+
+const TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]+$/
+
+interface ToolRow {
+  name: string
+  level: LockdownLevel
+  deleted: boolean
+}
+
+/**
+ * Session tool levels: cycle a row's level, flag rows for deletion, add a tool
+ * by name. Applies nothing itself; the caller writes the returned map.
+ */
+export function createToolLevelEditor(
+  entries: readonly (readonly [string, LockdownLevel])[],
+  knownTools: readonly string[],
+  theme: Theme,
+  host: RenderHost,
+  done: (levels: Record<string, LockdownLevel> | undefined) => void,
+): Component {
+  const levels = LockdownLevelSchema.options
+  const rows: ToolRow[] = entries.map(([name, level]) => ({ name, level, deleted: false }))
+  const input = new Input()
+
+  let index = rows.length
+  let error: string | undefined
+  let cached: string[] | undefined
+
+  const refresh = () => {
+    cached = undefined
+    host.requestRender()
+  }
+
+  const cycle = (level: LockdownLevel): LockdownLevel => levels[(levels.indexOf(level) + 1) % levels.length] ?? level
+
+  const result = (): Record<string, LockdownLevel> => {
+    const next: Record<string, LockdownLevel> = {}
+    for (const row of rows) {
+      if (!row.deleted) next[row.name] = row.level
+    }
+    return next
+  }
+
+  // Local prefix completion over the session's real tool names.
+  const completeName = () => {
+    const typed = input.getValue().trim()
+    if (typed.length === 0) return
+    const configured = new Set(rows.map((row) => row.name))
+    const match = knownTools.find((name) => !configured.has(name) && name.toLowerCase().startsWith(typed.toLowerCase()))
+    if (!match) return
+    input.setValue(match)
+    input.handleInput(END_KEY)
+    error = undefined
+    refresh()
+  }
+
+  const commitInput = () => {
+    const name = input.getValue().trim()
+    if (!TOOL_NAME_PATTERN.test(name)) {
+      error = 'Tool names may only contain letters, numbers, underscores and dashes.'
+      refresh()
+      return
+    }
+    if (rows.some((row) => row.name === name)) {
+      error = `"${name}" is already configured.`
+      refresh()
+      return
+    }
+    rows.push({ name, level: 'warn', deleted: false })
+    input.setValue('')
+    error = undefined
+    index = rows.length
+    refresh()
+  }
+
+  const component: Component & { focused: boolean } = {
+    focused: false,
+    invalidate: () => {
+      cached = undefined
+    },
+    render(width) {
+      if (cached) return cached
+      input.focused = component.focused && index === rows.length
+      const lines: string[] = [
+        theme.fg('accent', theme.bold('[LOCKDOWN] customTools')),
+        theme.fg('dim', 'File tools use the path lists. The last row adds a tool.'),
+        '',
+      ]
+      const totalRows = rows.length + 1
+      const start = Math.max(0, Math.min(index - Math.floor(MAX_VISIBLE_ROWS / 2), totalRows - MAX_VISIBLE_ROWS))
+      const end = Math.min(start + MAX_VISIBLE_ROWS, totalRows)
+      for (let i = start; i < end; i += 1) {
+        if (i < rows.length) {
+          const row = rows[i]
+          if (!row) continue
+          const selected = i === index
+          const prefix = selected ? theme.fg('accent', '→ ') : '  '
+          const label = row.deleted
+            ? theme.strikethrough(theme.fg('error', row.name))
+            : theme.fg(selected ? 'accent' : 'text', row.name)
+          const flag = row.deleted ? theme.fg('error', ' [delete]') : ''
+          lines.push(truncateToWidth(`${prefix}${label}  ${theme.fg('dim', row.level)}${flag}`, width, ''))
+          continue
+        }
+        const inputSelected = i === index
+        const inputPrefix = inputSelected ? theme.fg('accent', '→ ') : '  '
+        // Input renders a hardcoded "> " prompt; drop it so the row uses our own prefix.
+        const rendered = input.render(Math.max(1, width - visibleWidth(inputPrefix) + 2))[0] ?? ''
+        const inputLine = rendered.startsWith('> ') ? rendered.slice(2) : rendered
+        lines.push(truncateToWidth(`${inputPrefix}${inputLine}`, width, ''))
+      }
+
+      if (start > 0 || end < totalRows) {
+        lines.push(theme.fg('dim', `  (${index + 1}/${totalRows})`))
+      }
+      if (error) lines.push(theme.fg('error', error))
+      const hasText = input.getValue().trim().length > 0
+      lines.push('')
+      lines.push(
+        theme.fg('dim', `↑↓ navigate • Space cycle • Del flag • Enter ${hasText ? 'add' : 'save'} • Esc cancel`),
+      )
+      cached = lines
+      return lines
+    },
+    handleInput(data) {
+      if (matchesKey(data, Key.escape)) {
+        done(undefined)
+        return
+      }
+
+      if (matchesKey(data, Key.up)) {
+        index = Math.max(0, index - 1)
+        refresh()
+        return
+      }
+      if (matchesKey(data, Key.down)) {
+        index = Math.min(rows.length, index + 1)
+        refresh()
+        return
+      }
+
+      if (index < rows.length) {
+        const row = rows[index]
+        if (matchesKey(data, Key.enter) || matchesKey(data, Key.return) || matchesKey(data, Key.space)) {
+          if (row) row.level = cycle(row.level)
+          refresh()
+          return
+        }
+        if (matchesKey(data, Key.delete) || matchesKey(data, Key.backspace)) {
+          if (row) row.deleted = !row.deleted
+          refresh()
+        }
+        return
+      }
+
+      if (matchesKey(data, Key.tab)) {
+        completeName()
+        return
+      }
+      if (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) {
+        if (input.getValue().trim().length === 0) {
+          done(result())
+          return
+        }
+        commitInput()
+        return
+      }
+
+      input.handleInput(data)
+      error = undefined
+      refresh()
     },
   }
 
