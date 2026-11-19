@@ -91,12 +91,15 @@ function setup(projectLockdown: Record<string, unknown>, options: { hasUI?: bool
 
   const handlers = new Map<string, Handler>()
   const commands = new Map<string, CommandHandler>()
+  const getAllTools = vi.fn().mockReturnValue([])
+  const setActiveTools = vi.fn()
   const pi = {
     registerFlag: vi.fn(),
     on: (name: string, handler: Handler) => handlers.set(name, handler),
     registerCommand: (name: string, opts: { handler: CommandHandler }) => commands.set(name, opts.handler),
     registerTool: vi.fn(),
-    setActiveTools: vi.fn(),
+    setActiveTools,
+    getAllTools,
     getFlag: vi.fn().mockReturnValue(false),
   } as unknown as ExtensionAPI
 
@@ -119,6 +122,8 @@ function setup(projectLockdown: Record<string, unknown>, options: { hasUI?: bool
     select,
     input,
     custom: custom as ReturnType<typeof vi.fn>,
+    getAllTools,
+    setActiveTools,
     toolCall: handlers.get('tool_call') as Handler,
     sessionPermissions: commands.get('lockdown:session-permissions') as CommandHandler,
     reset: commands.get('lockdown:reset') as CommandHandler,

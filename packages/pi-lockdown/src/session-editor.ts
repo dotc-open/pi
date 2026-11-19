@@ -527,8 +527,30 @@ export function createToolLevelEditor(
   return component
 }
 
-/** New-mode session editor: edit the four path lists for the current session only. */
-export async function configureNewModeSession(ctx: ExtensionContext, settings: PathPolicySettings): Promise<void> {
+/** One notification per added, removed or re-levelled tool, in the list-edit copy style. */
+function notifyToolChanges(
+  ctx: ExtensionContext,
+  previous: Record<string, LockdownLevel>,
+  next: Record<string, LockdownLevel>,
+): void {
+  for (const [name, level] of Object.entries(next)) {
+    if (!(name in previous)) {
+      ctx.ui.notify(`[LOCKDOWN] Added "${name}" to customTools at ${level}.`, 'info')
+    } else if (previous[name] !== level) {
+      ctx.ui.notify(`[LOCKDOWN] Set "${name}" to ${level} in customTools.`, 'info')
+    }
+  }
+  for (const name of Object.keys(previous)) {
+    if (!(name in next)) ctx.ui.notify(`[LOCKDOWN] Removed "${name}" from customTools.`, 'info')
+  }
+}
+
+/** New-mode session editor: edit the four path lists and the session tool levels. */
+export async function configureNewModeSession(
+  ctx: ExtensionContext,
+  settings: PathPolicySettings,
+  knownTools: readonly string[],
+): Promise<void> {
   if (!ctx.hasUI) {
     ctx.ui.notify('[LOCKDOWN] Session permissions require an interactive UI.', 'error')
     return
@@ -539,7 +561,18 @@ export async function configureNewModeSession(ctx: ExtensionContext, settings: P
       createListChooser(settings, theme, tui, done),
     )
     if (key === undefined) return
-    if (key === 'customTools') continue
+
+    if (key === 'customTools') {
+      const previous = settings.customTools
+      const next = await ctx.ui.custom<Record<string, LockdownLevel> | undefined>((tui, theme, _kb, done) =>
+        createToolLevelEditor(Object.entries(previous), knownTools, theme, tui, done),
+      )
+      // Esc returns to the menu without saving; a save is final and closes the command.
+      if (next === undefined) continue
+      settings.customTools = next
+      notifyToolChanges(ctx, previous, next)
+      return
+    }
 
     const result = await ctx.ui.custom<ListEditResult | undefined>((tui, theme, _kb, done) =>
       createListEditor(key, settings[key], ctx.cwd, theme, tui, done),

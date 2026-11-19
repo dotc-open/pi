@@ -14,6 +14,7 @@ import {
   defaultLockdownSettings,
   type LockdownLevel,
   LockdownLevelSchema,
+  type LockdownSettings,
   type PathPolicyKey,
   type PathPolicySettings,
 } from './schema'
@@ -75,6 +76,11 @@ function isSubagentProcess(pi: ExtensionAPI): boolean {
   return pi.getFlag(SUBAGENT_FLAG) === true || process.env.PI_LOCKDOWN_SUBAGENT === '1'
 }
 
+/** Tools a session activates: the configured built-ins plus every custom tool. */
+function sessionTools(settings: LockdownSettings): string[] {
+  return Array.from(new Set([...settings.defaultTools, ...Object.keys(settings.customTools)]))
+}
+
 /**
  * Lockdown: A Pi extension to add security constraints to agents' tool usage.
  */
@@ -98,8 +104,7 @@ export default function (pi: ExtensionAPI) {
     lockdownSettings = loadedSettings
 
     // Set tools
-    const tools = (lockdownSettings.defaultTools as string[]).concat(Object.keys(lockdownSettings.customTools))
-    pi.setActiveTools(Array.from(new Set(tools)))
+    pi.setActiveTools(sessionTools(lockdownSettings))
   })
 
   pi.on('tool_call', async (event, ctx) => {
@@ -234,7 +239,13 @@ export default function (pi: ExtensionAPI) {
     handler: async (_args, ctx) => {
       const settings = lockdownSettings
       if (settings.mode === 'new') {
-        await configureNewModeSession(ctx, settings)
+        await configureNewModeSession(
+          ctx,
+          settings,
+          pi.getAllTools().map((tool) => tool.name),
+        )
+        // Adds and deletes take effect now, not only at the next session start.
+        pi.setActiveTools(sessionTools(settings))
         return
       }
       const items = constructSettingsList(settings)
